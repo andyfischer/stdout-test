@@ -1,0 +1,17 @@
+{
+  "name": "stdout-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "stdout-test": "bin/stdout-test"
+  },
+  "author": "Andy Fischer",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "8.0.7"
+  }
+}
