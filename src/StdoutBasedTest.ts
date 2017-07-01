@@ -30,9 +30,10 @@ export async function run(options:Options) {
     const inputFilename = Path.join(options.testDir, 'input.txt');
     const expectedOutputFilename = Path.join(options.testDir, 'expected.txt');
 
-    await readFile(inputFilename)
+    const fullCommand = options.command + ' ' + inputFilename;
+    console.log(`Running: ${fullCommand}`);
 
-    const shellResult = await shell(options.command + ' ' + inputFilename);
+    const shellResult = await shell(fullCommand);
 
     if (shellResult.stderr)
         throw new Error(`Command ${options.command} had stderr:\n${shellResult.stderr}`);
@@ -41,7 +42,11 @@ export async function run(options:Options) {
         throw new Error(`Command ${options.command} had error:\n${shellResult.error}`);
 
     const actualOutput = shellResult.stdout;
-    console.log(actualOutput);
+    const actualLines = actualOutput.split('\n');
+
+    console.log("Output:");
+    for (const line of actualLines)
+        console.log(line);
 
     if (options.acceptOutput) {
         await writeFile(expectedOutputFilename, actualOutput);
@@ -50,7 +55,6 @@ export async function run(options:Options) {
     }
 
     const expectedOutput = await readFile(expectedOutputFilename);
-    const actualLines = actualOutput.split('\n');
     const expectedLines = expectedOutput.split('\n');
 
     for (const lineNumber in actualLines) {
