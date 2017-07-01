@@ -13,5 +13,9 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "8.0.7"
+  },
+  "dependencies": {
+    "toml": "^2.3.2",
+    "yargs": "^8.0.2"
   }
 }

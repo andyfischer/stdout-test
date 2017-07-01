@@ -1,11 +1,13 @@
 
-import {readFile, writeFile} from './Util';
+import {readFile, writeFile, readTomlFile} from './Util';
 
 import * as ChildProcess from 'child_process';
 import * as Fs from 'fs';
 import * as Path from 'path';
 
 interface Options {
+    command: string
+    testDir: string
     acceptOutput?: boolean
 }
 
@@ -23,56 +25,67 @@ export function shell(cmd:string, options:any = {})
     });
 }
 
+export async function run(options:Options) {
 
-export function readDir(dirname) : Promise<string[]> {
-    return new Promise((resolve, reject) => {
-        Fs.readDir(dirname, (error, contents) => {
-            if (error)
-                reject(error);
-            else
-                resolve(contents);
-        });
-    });
-}
-
-export async function run(command, directory, options:Options) {
-
-    const inputFilename = Path.join(directory, 'input.txt');
-    const expectedOutputFilename = Path.join(directory, 'expected.txt');
+    const inputFilename = Path.join(options.testDir, 'input.txt');
+    const expectedOutputFilename = Path.join(options.testDir, 'expected.txt');
 
     await readFile(inputFilename)
 
-    const shellResult = await shell(command + ' ' + inputFilename);
+    const shellResult = await shell(options.command + ' ' + inputFilename);
 
     if (shellResult.stderr)
-        throw new Error(`Command ${command} had stderr:\n${shellResult.stderr}`);
+        throw new Error(`Command ${options.command} had stderr:\n${shellResult.stderr}`);
+
     if (shellResult.error)
-        throw new Error(`Command ${command} had error:\n${shellResult.error}`);
+        throw new Error(`Command ${options.command} had error:\n${shellResult.error}`);
 
     const actualOutput = shellResult.stdout;
-    console.log("actual = ", actualOutput);
+    console.log(actualOutput);
 
     if (options.acceptOutput) {
         await writeFile(expectedOutputFilename, actualOutput);
+        console.log(`Wrote output to: ${expectedOutputFilename}`);
         return;
     }
 
-    if (!options.acceptOutput) {
-        const expectedOutput = await readFile(expectedOutputFilename);
-        console.log("expected = ", expectedOutput);
+    const expectedOutput = await readFile(expectedOutputFilename);
+    const actualLines = actualOutput.split('\n');
+    const expectedLines = expectedOutput.split('\n');
+
+    for (const lineNumber in actualLines) {
+        const actualLine = actualLines[lineNumber];
+        const expectedLine = expectedLines[lineNumber];
+
+        if (actualLine !== expectedLine) {
+            return Promise.reject(`Line ${lineNumber} didn't match expected output:\n`
+                +`Expected: ${expectedLine}\n`
+                +`Actual:   ${actualLine}`);
+        }
     }
 }
 
 function commandLineStart() {
-    let args = process.argv.slice(2);
-    const options:Options = {};
+    const args = require('yargs')
+        .usage('$0 <cmd> [args]')
+        .option('command')
+        .option('accept', {
+            boolean: true
+        })
+        .help()
+        .argv;
 
-    if (args[0] === '--accept') {
-        options.acceptOutput = true;
-        args = args.slice(2);
+    const options:Options = {
+        command: args['command'],
+        acceptOutput: args['accept'],
+        testDir: args._[0]
+    };
+
+    if (!options.command) {
+        throw new Error("Missing 'command'");
     }
 
-    run(args[0], args[1], options)
+    run(options)
     .catch((err) => {
         process.exitCode = 1;
         console.log(err);

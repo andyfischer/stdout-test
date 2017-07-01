@@ -15,6 +15,11 @@ export function readFile(filename:string) : Promise<string> {
     });
 }
 
+export async function readTomlFile(filename:string) : Promise<any> {
+    const contents = await readFile(filename);
+    return require('toml').parse(contents);
+}
+
 export function writeFile(filename:string, contents:string) : Promise<void> {
     return new Promise((resolve, reject) => {
         Fs.writeFile(filename, contents, (error, contents) => {
