@@ -13,10 +13,9 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "8.0.7",
-    "source-map-support": "^0.4.15"
+    "source-map-support": "0.4.15"
   },
   "dependencies": {
-    "toml": "^2.3.2",
-    "yargs": "^8.0.2"
+    "toml": "^2.3.2"
   }
 }

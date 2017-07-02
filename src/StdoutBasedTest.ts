@@ -5,12 +5,13 @@ import * as Path from 'path';
 
 import {readFile, writeFile} from './Util';
 import {getDerivedConfigsForDir} from './ReadConfigs';
+import {ArgReader} from './ArgReader';
 
 require('source-map-support');
 
 interface Options {
-    command: string
-    testDir: string
+    command?: string
+    targetDirectories: string[]
     acceptOutput?: boolean
 }
 
@@ -30,13 +31,16 @@ export function shell(cmd:string, options:any = {})
 
 export async function run(options:Options) {
 
-    const configs = await getDerivedConfigsForDir(options.testDir);
+    const targetDir = options.targetDirectories[0];
+    console.log("Running test in: " + targetDir);
+
+    const configs = await getDerivedConfigsForDir(targetDir);
     if (configs.command) {
         options.command = configs.command;
     }
 
-    const inputFilename = Path.join(options.testDir, 'input.txt');
-    const expectedOutputFilename = Path.join(options.testDir, 'expected.txt');
+    const inputFilename = Path.join(targetDir, 'input.txt');
+    const expectedOutputFilename = Path.join(targetDir, 'expected.txt');
 
     const fullCommand = options.command + ' ' + inputFilename;
     console.log(`Running: ${fullCommand}`);
@@ -79,21 +83,33 @@ export async function run(options:Options) {
     console.log("Test passed");
 }
 
+
 function commandLineStart() {
-    const args = require('yargs')
-        .usage('$0 <cmd> [args]')
-        .option('command')
-        .option('accept', {
-            boolean: true
-        })
-        .help()
-        .argv;
+    const reader = new ArgReader();
 
     const options:Options = {
-        command: args['command'],
-        acceptOutput: args['accept'],
-        testDir: args._[0]
+        targetDirectories: []
     };
+
+    while (!reader.finished()) {
+        const next = reader.consume();
+        if (next === '--help') {
+            console.log(`Usage: ${process.argv[0]} <options> <directories...>`);
+            console.log('\nAvailable options:');
+            console.log('  --accept   Accept the observed output and save it to disk');
+            return;
+        } else if (next === '--accept') {
+            options.acceptOutput = true;
+        } else if (next === '--command') {
+            options.command = reader.consume();
+        } else {
+            if (ArgReader.looksLikeOption(next)) {
+                console.log("Unrecognized option: " +next);
+                return;
+            }
+            options.targetDirectories.push(next);
+        }
+    }
 
     run(options)
     .catch((err) => {
