@@ -1,9 +1,12 @@
 
-import {readFile, writeFile, readTomlFile} from './Util';
-
 import * as ChildProcess from 'child_process';
 import * as Fs from 'fs';
 import * as Path from 'path';
+
+import {readFile, writeFile} from './Util';
+import {getDerivedConfigsForDir} from './ReadConfigs';
+
+require('source-map-support');
 
 interface Options {
     command: string
@@ -27,6 +30,11 @@ export function shell(cmd:string, options:any = {})
 
 export async function run(options:Options) {
 
+    const configs = await getDerivedConfigsForDir(options.testDir);
+    if (configs.command) {
+        options.command = configs.command;
+    }
+
     const inputFilename = Path.join(options.testDir, 'input.txt');
     const expectedOutputFilename = Path.join(options.testDir, 'expected.txt');
 
@@ -36,10 +44,10 @@ export async function run(options:Options) {
     const shellResult = await shell(fullCommand);
 
     if (shellResult.stderr)
-        throw new Error(`Command ${options.command} had stderr:\n${shellResult.stderr}`);
+        throw new Error(`Command ${fullCommand} had stderr:\n${shellResult.stderr}`);
 
     if (shellResult.error)
-        throw new Error(`Command ${options.command} had error:\n${shellResult.error}`);
+        throw new Error(`Command ${fullCommand} had error:\n${shellResult.error}`);
 
     const actualOutput = shellResult.stdout;
     const actualLines = actualOutput.split('\n');
@@ -67,6 +75,8 @@ export async function run(options:Options) {
                 +`Actual:   ${actualLine}`);
         }
     }
+
+    console.log("Test passed");
 }
 
 function commandLineStart() {
@@ -84,10 +94,6 @@ function commandLineStart() {
         acceptOutput: args['accept'],
         testDir: args._[0]
     };
-
-    if (!options.command) {
-        throw new Error("Missing 'command'");
-    }
 
     run(options)
     .catch((err) => {

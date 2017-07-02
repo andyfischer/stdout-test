@@ -12,7 +12,8 @@
   "author": "Andy Fischer",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "8.0.7"
+    "@types/node": "8.0.7",
+    "source-map-support": "^0.4.15"
   },
   "dependencies": {
     "toml": "^2.3.2",
