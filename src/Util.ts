@@ -1,8 +1,5 @@
-declare function require(arg:string): any;
-declare const module: any;
-declare const process: any;
-
-const Fs = require('fs');
+import * as Path from 'path';
+import * as Fs from 'fs';
 
 export function readFile(filename:string) : Promise<string> {
     return new Promise((resolve, reject) => {
@@ -16,6 +13,7 @@ export function readFile(filename:string) : Promise<string> {
 }
 
 export function stat(filename:string) : Promise<any> {
+    console.log('stat: '+filename);
     return new Promise((resolve, reject) => {
         Fs.stat(filename, (error, stats) => {
             if (error)
@@ -27,14 +25,48 @@ export function stat(filename:string) : Promise<any> {
 }
 
 export function readDir(filename:string) : Promise<string[]> {
+    console.log('readdir: ', filename);
     return new Promise((resolve, reject) => {
-        Fs.readDir(filename, (error, contents) => {
+        Fs.readdir(filename, (error, files) => {
             if (error)
                 reject(error);
-            else
-                resolve(contents.toString());
+            else {
+                resolve(files);
+            }
         });
     });
+}
+
+export function isDirectory(filename:string) : Promise<boolean> {
+    return stat(filename)
+    .then((stat) => stat.isDirectory());
+}
+
+export async function readDirRecursive(filename:string) : Promise<string[]> {
+
+    console.log('readDirRecursive: ', filename);
+
+    let nextSearch = [filename];
+    const found = [];
+
+    while (nextSearch.length > 0) {
+        console.log('nextSearch = ', nextSearch);
+        const thisSearch = nextSearch;
+        nextSearch = [];
+
+        for (const dir of thisSearch) {
+            const dirContents = await readDir(dir);
+            for (const file of dirContents) {
+                const fullFilename = Path.join(dir, file);
+                found.push(fullFilename);
+                if (await isDirectory(fullFilename)) {
+                    nextSearch.push(fullFilename);
+                }
+            }
+        }
+    }
+
+    return found;
 }
 
 export async function readTomlFile(filename:string) : Promise<any> {
@@ -54,13 +86,13 @@ export function writeFile(filename:string, contents:string) : Promise<void> {
 }
 
 export function fileExists(filename:string) : Promise<boolean> {
-
     return new Promise((resolve, reject) => {
-        Fs.exists(filename, (error, exists) => {
-            if (error)
-                resolve(false);
-            else
-                resolve(exists);
+        Fs.exists(filename, (exists) => {
+            resolve(exists);
         });
     });
+}
+
+if (!module.parent) {
+    readDirRecursive(process.argv[2]).then(console.log).catch(console.log);
 }

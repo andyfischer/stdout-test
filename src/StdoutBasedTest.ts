@@ -3,7 +3,7 @@ import * as ChildProcess from 'child_process';
 import * as Fs from 'fs';
 import * as Path from 'path';
 
-import {readFile, writeFile, stat, fileExists} from './Util';
+import {readFile, writeFile, fileExists, readDirRecursive} from './Util';
 import {getDerivedConfigsForDir} from './ReadConfigs';
 import {ArgReader} from './ArgReader';
 
@@ -30,27 +30,34 @@ export function shell(cmd:string, options:any = {})
     });
 }
 
-export async function findAllTestDirectories(options:Options) {
+export async function findAllTests(options:Options) {
+    const tests = [];
+
+    for (const target of options.targetDirectories) {
+        for (const file of await readDirRecursive(target)) {
+            if (Path.basename(file) === 'expected.txt') {
+                tests.push(Path.dirname(file));
+            }
+        }
+    }
+    return tests;
 }
 
-export async function run(options:Options) {
-
-    const targetDir = options.targetDirectories[0];
-
-    const configs = await getDerivedConfigsForDir(targetDir);
+async function runOneTest(testDir:string, options:Options) {
+    const configs = await getDerivedConfigsForDir(testDir);
     if (configs.command) {
         options.command = configs.command;
     }
     
     let fullCommand = options.command;
-    const inputFilename = Path.join(targetDir, 'input.txt');
+    const inputFilename = Path.join(testDir, 'input.txt');
 
     // Use input file, if it exists.
     if (await fileExists(inputFilename)) {
         fullCommand += ' ' + inputFilename;
     }
 
-    const expectedOutputFilename = Path.join(targetDir, 'expected.txt');
+    const expectedOutputFilename = Path.join(testDir, 'expected.txt');
 
     console.log(`Running: ${fullCommand}`);
 
@@ -91,7 +98,14 @@ export async function run(options:Options) {
         }
     }
 
-    console.log("Test passed");
+    console.log(`Test passed: ${fullCommand}`);
+}
+
+export async function run(options:Options) {
+
+    const testDirs = await findAllTests(options);
+
+    Promise.all(testDirs.map((dir) => runOneTest(dir, options)));
 }
 
 function parseCommandLineArgs() : Options {

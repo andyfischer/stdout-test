@@ -1,2 +1,2 @@
-Argv is: test/uses-input-file/input.txt
+Argv is: test/with-input-file/input.txt
 Done
