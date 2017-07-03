@@ -3,7 +3,7 @@ import * as ChildProcess from 'child_process';
 import * as Fs from 'fs';
 import * as Path from 'path';
 
-import {readFile, writeFile} from './Util';
+import {readFile, writeFile, stat, fileExists} from './Util';
 import {getDerivedConfigsForDir} from './ReadConfigs';
 import {ArgReader} from './ArgReader';
 
@@ -13,6 +13,7 @@ interface Options {
     command?: string
     targetDirectories: string[]
     acceptOutput?: boolean
+    showOutput?: boolean
 }
 
 export function shell(cmd:string, options:any = {})
@@ -29,20 +30,28 @@ export function shell(cmd:string, options:any = {})
     });
 }
 
+export async function findAllTestDirectories(options:Options) {
+}
+
 export async function run(options:Options) {
 
     const targetDir = options.targetDirectories[0];
-    console.log("Running test in: " + targetDir);
 
     const configs = await getDerivedConfigsForDir(targetDir);
     if (configs.command) {
         options.command = configs.command;
     }
-
+    
+    let fullCommand = options.command;
     const inputFilename = Path.join(targetDir, 'input.txt');
+
+    // Use input file, if it exists.
+    if (await fileExists(inputFilename)) {
+        fullCommand += ' ' + inputFilename;
+    }
+
     const expectedOutputFilename = Path.join(targetDir, 'expected.txt');
 
-    const fullCommand = options.command + ' ' + inputFilename;
     console.log(`Running: ${fullCommand}`);
 
     const shellResult = await shell(fullCommand);
@@ -56,9 +65,11 @@ export async function run(options:Options) {
     const actualOutput = shellResult.stdout;
     const actualLines = actualOutput.split('\n');
 
-    console.log("Output:");
-    for (const line of actualLines)
-        console.log(line);
+    if (options.showOutput) {
+        console.log("Output:");
+        for (const line of actualLines)
+            console.log(line);
+    }
 
     if (options.acceptOutput) {
         await writeFile(expectedOutputFilename, actualOutput);
@@ -83,10 +94,8 @@ export async function run(options:Options) {
     console.log("Test passed");
 }
 
-
-function commandLineStart() {
+function parseCommandLineArgs() : Options {
     const reader = new ArgReader();
-
     const options:Options = {
         targetDirectories: []
     };
@@ -100,6 +109,9 @@ function commandLineStart() {
             return;
         } else if (next === '--accept') {
             options.acceptOutput = true;
+            options.showOutput = true;
+        } else if (next === '--show') {
+            options.showOutput = true;
         } else if (next === '--command') {
             options.command = reader.consume();
         } else {
@@ -110,6 +122,11 @@ function commandLineStart() {
             options.targetDirectories.push(next);
         }
     }
+    return options;
+}
+
+function commandLineStart() {
+    const options = parseCommandLineArgs();
 
     run(options)
     .catch((err) => {
