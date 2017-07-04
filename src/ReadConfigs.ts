@@ -1,10 +1,9 @@
 
-import {readTomlFile} from './Util'
 import * as Path from 'path';
 
-export interface Config {
-    command?: string
-}
+import {readTomlFile} from './Util';
+import commandLineArgs from './CommandLineArgs';
+import {Options} from './Options';
 
 const _cached = {}
 
@@ -17,35 +16,42 @@ export function readTomlFileOptional(filename:string) : Promise<any | null> {
         });
 }
 
-async function _getDerivedConfigsForDir(dir:string) : Promise<Config> {
+async function _getDerivedConfigsForDir(dir:string) : Promise<Options> {
 
     const parentDir = Path.dirname(dir);
-    const configs = {};
+    const configs:Options = {
+        targetDirectories: []
+    };
 
     if (parentDir !== dir) {
         const parentConfigs = await getDerivedConfigsForDir(parentDir);
 
-        for (const key in parentConfigs) {
+        for (const key in parentConfigs)
             configs[key] = parentConfigs[key];
-        }
     }
 
     const configFile = await readTomlFileOptional(Path.join(dir, 'stdout-test.toml'));
+
     if (configFile !== null) {
-        for (const key in configFile) {
+        // Don't allow the config file to set certain options, these are command-line only.
+        delete configFile['acceptOutput'];
+        delete configFile['show'];
+
+        for (const key in configFile)
             configs[key] = configFile[key];
-        }
     }
 
-    // don't allow a config file to set the 'acceptOutput' flag, it wouldn't make sense.
-    delete configs['acceptOutput'];
+    // Include options from command-line args.
+    const args = commandLineArgs();
+    for (const key in args)
+        configs[key] = args[key];
 
     console.log('read configs: ', configs);
 
     return configs;
 }
 
-export function getDerivedConfigsForDir(dir:string) : Promise<Config> {
+export function getDerivedConfigsForDir(dir:string) : Promise<Options> {
     if (_cached[dir])
         return _cached[dir];
 

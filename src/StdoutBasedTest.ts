@@ -5,17 +5,10 @@ import * as Path from 'path';
 
 import {readFile, writeFile, fileExists, readDirRecursive} from './Util';
 import {getDerivedConfigsForDir} from './ReadConfigs';
-import {ArgReader} from './ArgReader';
+import commandLineArgs from './CommandLineArgs';
+import {Options} from './Options';
 
 require('source-map-support');
-
-interface Options {
-    command?: string
-    targetDirectories: string[]
-    acceptOutput?: boolean
-    showOutput?: boolean
-    expect_error?: boolean
-}
 
 interface TestSuccess {
     result: 'success'
@@ -136,45 +129,8 @@ export async function run(options:Options) {
     Promise.all(allTests.map((dir) => runOneTest(dir, options)));
 }
 
-function parseCommandLineArgs() : Options {
-    const reader = new ArgReader();
-    const options:Options = {
-        targetDirectories: []
-    };
-
-    while (!reader.finished()) {
-        const next = reader.consume();
-        if (next === '--help') {
-            console.log(`Usage: ${process.argv[0]} <options> <directories...>`);
-            console.log('\nAvailable options:');
-            console.log('  --accept   Accept the observed output and save it to disk');
-            return;
-        } else if (next === '--accept') {
-            options.acceptOutput = true;
-            options.showOutput = true;
-        } else if (next === '--show') {
-            options.showOutput = true;
-        } else if (next === '--command') {
-            options.command = reader.consume();
-        } else {
-            if (ArgReader.looksLikeOption(next)) {
-                console.log("Unrecognized option: " +next);
-                return;
-            }
-            options.targetDirectories.push(next);
-        }
-    }
-
-    // Default to 'test' target directory.
-    if (options.targetDirectories.length === 0) {
-        options.targetDirectories = ['test'];
-    }
-
-    return options;
-}
-
 function commandLineStart() {
-    const options = parseCommandLineArgs();
+    const options = commandLineArgs();
 
     run(options)
     .catch((err) => {

@@ -1,5 +1,5 @@
 
-export class ArgReader {
+export default class ArgReader {
     index = 0
     args: string[]
 
