@@ -77,7 +77,7 @@ export function writeFile(filename:string, contents:string) : Promise<void> {
             else
                 resolve();
         });
-    });
+    }) as any as Promise<void>;
 }
 
 export function fileExists(filename:string) : Promise<boolean> {

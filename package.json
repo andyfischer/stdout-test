@@ -16,7 +16,8 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "8.0.7",
-    "source-map-support": "0.4.15"
+    "source-map-support": "0.4.15",
+    "typescript": "2.4.1"
   },
   "dependencies": {
     "toml": "^2.3.2"
