@@ -1,0 +1,2 @@
+Argv is: test/test-dir-in-command
+Done

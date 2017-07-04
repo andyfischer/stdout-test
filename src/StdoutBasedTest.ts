@@ -38,14 +38,11 @@ export function shell(cmd:string, options:any = {})
     });
 }
 
-export async function findAllTests(options:Options) {
+async function findTestsForTarget(target:string) {
     const tests = [];
-
-    for (const target of options.targetDirectories) {
-        for (const file of await readDirRecursive(target)) {
-            if (Path.basename(file) === 'expected.txt') {
-                tests.push(Path.dirname(file));
-            }
+    for (const file of await readDirRecursive(target)) {
+        if (Path.basename(file) === 'expected.txt') {
+            tests.push(Path.dirname(file));
         }
     }
     return tests;
@@ -64,6 +61,9 @@ async function runOneTest(testDir:string, options:Options) : Promise<TestSuccess
     if (await fileExists(inputFilename)) {
         fullCommand += ' ' + inputFilename;
     }
+
+    // Template strings
+    fullCommand = fullCommand.replace(/\{testDir\}/g, testDir);
 
     const expectedOutputFilename = Path.join(testDir, 'expected.txt');
 
@@ -118,9 +118,14 @@ async function runOneTest(testDir:string, options:Options) : Promise<TestSuccess
 
 export async function run(options:Options) {
 
-    const testDirs = await findAllTests(options);
+    let allTests = [];
 
-    Promise.all(testDirs.map((dir) => runOneTest(dir, options)));
+    for (const target of options.targetDirectories) {
+        const targetTests = await findTestsForTarget(target);
+        allTests = allTests.concat(targetTests);
+    }
+
+    Promise.all(allTests.map((dir) => runOneTest(dir, options)));
 }
 
 function parseCommandLineArgs() : Options {
