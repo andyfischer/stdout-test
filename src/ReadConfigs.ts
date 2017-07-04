@@ -37,6 +37,11 @@ async function _getDerivedConfigsForDir(dir:string) : Promise<Config> {
         }
     }
 
+    // don't allow a config file to set the 'acceptOutput' flag, it wouldn't make sense.
+    delete configs['acceptOutput'];
+
+    console.log('read configs: ', configs);
+
     return configs;
 }
 

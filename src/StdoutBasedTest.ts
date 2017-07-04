@@ -14,6 +14,7 @@ interface Options {
     targetDirectories: string[]
     acceptOutput?: boolean
     showOutput?: boolean
+    expect_error?: boolean
 }
 
 interface TestSuccess {
@@ -69,6 +70,8 @@ async function runOneTest(testDir:string, options:Options) : Promise<TestSuccess
 
     console.log(`Running: ${fullCommand}`);
 
+    console.log("Options: ", options);
+
     const shellResult = await shell(fullCommand);
 
     if (shellResult.stderr) {
@@ -76,8 +79,13 @@ async function runOneTest(testDir:string, options:Options) : Promise<TestSuccess
         return {result: 'failure'};
     }
 
-    if (shellResult.error) {
+    if (shellResult.error && !options.expect_error) {
         console.log(`Command ${fullCommand} had error:\n${shellResult.error}`);
+        return {result: 'failure'};
+    }
+
+    if (options.expect_error && !shellResult.error) {
+        console.log(`Command ${fullCommand} didn't throw an error, but 'expect_error' is on`);
         return {result: 'failure'};
     }
 

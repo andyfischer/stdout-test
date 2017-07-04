@@ -1,0 +1,3 @@
+
+command = "test/TestApp.js --error-exit-code"
+expect_error = true
