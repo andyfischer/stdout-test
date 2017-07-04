@@ -1,2 +1,2 @@
-Argv is: --extra-option-from-config-file
+Command line args = [ '--extra-option-from-config-file' ]
 Done

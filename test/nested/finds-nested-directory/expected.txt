@@ -1,2 +1,2 @@
-Argv is: 
+Command line args = []
 Done

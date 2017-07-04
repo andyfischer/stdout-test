@@ -1,2 +1,2 @@
-Argv is: test/with-input-file/input.txt
+Command line args = [ 'test/with-input-file/input.txt' ]
 Done
