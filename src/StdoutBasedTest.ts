@@ -16,6 +16,14 @@ interface Options {
     showOutput?: boolean
 }
 
+interface TestSuccess {
+    result: 'success'
+}
+
+interface TestFailure {
+    result: 'failure'
+}
+
 export function shell(cmd:string, options:any = {})
         : Promise<{error:any, stdout:string, stderr:string}>
 {
@@ -43,7 +51,7 @@ export async function findAllTests(options:Options) {
     return tests;
 }
 
-async function runOneTest(testDir:string, options:Options) {
+async function runOneTest(testDir:string, options:Options) : Promise<TestSuccess | TestFailure> {
     const configs = await getDerivedConfigsForDir(testDir);
     if (configs.command) {
         options.command = configs.command;
@@ -63,11 +71,15 @@ async function runOneTest(testDir:string, options:Options) {
 
     const shellResult = await shell(fullCommand);
 
-    if (shellResult.stderr)
-        throw new Error(`Command ${fullCommand} had stderr:\n${shellResult.stderr}`);
+    if (shellResult.stderr) {
+        console.log(`Command ${fullCommand} had stderr:\n${shellResult.stderr}`);
+        return {result: 'failure'};
+    }
 
-    if (shellResult.error)
-        throw new Error(`Command ${fullCommand} had error:\n${shellResult.error}`);
+    if (shellResult.error) {
+        console.log(`Command ${fullCommand} had error:\n${shellResult.error}`);
+        return {result: 'failure'};
+    }
 
     const actualOutput = shellResult.stdout;
     const actualLines = actualOutput.split('\n');
@@ -75,13 +87,13 @@ async function runOneTest(testDir:string, options:Options) {
     if (options.showOutput) {
         console.log("Output:");
         for (const line of actualLines)
-            console.log(line);
+            console.log('  ' + line);
     }
 
     if (options.acceptOutput) {
         await writeFile(expectedOutputFilename, actualOutput);
         console.log(`Wrote output to: ${expectedOutputFilename}`);
-        return;
+        return {result: 'success'};
     }
 
     const expectedOutput = await readFile(expectedOutputFilename);
@@ -92,13 +104,16 @@ async function runOneTest(testDir:string, options:Options) {
         const expectedLine = expectedLines[lineNumber];
 
         if (actualLine !== expectedLine) {
-            return Promise.reject(`Line ${lineNumber} didn't match expected output:\n`
+            console.log(`Line ${lineNumber} didn't match expected output:\n`
                 +`Expected: ${expectedLine}\n`
                 +`Actual:   ${actualLine}`);
+
+            return {result: 'failure'};
         }
     }
 
-    console.log(`Test passed: ${fullCommand}`);
+    console.log(`Test passed: ${testDir}`);
+    return {result: 'success'};
 }
 
 export async function run(options:Options) {
@@ -136,6 +151,12 @@ function parseCommandLineArgs() : Options {
             options.targetDirectories.push(next);
         }
     }
+
+    // Default to 'test' target directory.
+    if (options.targetDirectories.length === 0) {
+        options.targetDirectories = ['test'];
+    }
+
     return options;
 }
 

@@ -4,7 +4,9 @@
   "description": "Language-agnostic test tool that checks a process's stdout output",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p .",
+    "test": "bin/stdout-test",
+    "prepublish": "tsc -p . && bin/stdout-test"
   },
   "bin": {
     "stdout-test": "bin/stdout-test"

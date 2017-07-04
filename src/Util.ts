@@ -13,7 +13,6 @@ export function readFile(filename:string) : Promise<string> {
 }
 
 export function stat(filename:string) : Promise<any> {
-    console.log('stat: '+filename);
     return new Promise((resolve, reject) => {
         Fs.stat(filename, (error, stats) => {
             if (error)
@@ -25,7 +24,6 @@ export function stat(filename:string) : Promise<any> {
 }
 
 export function readDir(filename:string) : Promise<string[]> {
-    console.log('readdir: ', filename);
     return new Promise((resolve, reject) => {
         Fs.readdir(filename, (error, files) => {
             if (error)
@@ -44,13 +42,10 @@ export function isDirectory(filename:string) : Promise<boolean> {
 
 export async function readDirRecursive(filename:string) : Promise<string[]> {
 
-    console.log('readDirRecursive: ', filename);
-
     let nextSearch = [filename];
     const found = [];
 
     while (nextSearch.length > 0) {
-        console.log('nextSearch = ', nextSearch);
         const thisSearch = nextSearch;
         nextSearch = [];
 
@@ -93,6 +88,6 @@ export function fileExists(filename:string) : Promise<boolean> {
     });
 }
 
-if (!module.parent) {
-    readDirRecursive(process.argv[2]).then(console.log).catch(console.log);
+export function indent(str:string, indent:string = '  ') {
+    return indent + str.replace(/\n/g, '\n' + indent);
 }
