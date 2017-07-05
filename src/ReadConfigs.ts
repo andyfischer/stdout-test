@@ -3,9 +3,9 @@ import * as Path from 'path';
 
 import {readTomlFile} from './Util';
 import commandLineArgs from './CommandLineArgs';
-import {Options} from './Options';
+import {Configs} from './Configs';
 
-const _cached = {}
+const _cachedConfigs = {}
 
 export function readTomlFileOptional(filename:string) : Promise<any | null> {
     return readTomlFile(filename)
@@ -16,10 +16,15 @@ export function readTomlFileOptional(filename:string) : Promise<any | null> {
         });
 }
 
-async function _getDerivedConfigsForDir(dir:string) : Promise<Options> {
+export async function getDerivedConfigsForDir(dir:string) : Promise<Configs> {
+
+    if (_cachedConfigs[dir]) {
+        console.log('found cache for', dir, _cachedConfigs[dir]);
+        return JSON.parse(_cachedConfigs[dir]);
+    }
 
     const parentDir = Path.dirname(dir);
-    const configs:Options = {
+    const configs:Configs = {
         targetDirectories: []
     };
 
@@ -46,17 +51,7 @@ async function _getDerivedConfigsForDir(dir:string) : Promise<Options> {
     for (const key in args)
         configs[key] = args[key];
 
-    console.log('read configs: ', configs);
+    _cachedConfigs[dir] = JSON.stringify(configs);
 
     return configs;
-}
-
-export function getDerivedConfigsForDir(dir:string) : Promise<Options> {
-    if (_cached[dir])
-        return _cached[dir];
-
-    const result = _getDerivedConfigsForDir(dir);
-    _cached[dir] = result;
-
-    return result;
 }

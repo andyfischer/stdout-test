@@ -3,19 +3,24 @@ import * as ChildProcess from 'child_process';
 import * as Fs from 'fs';
 import * as Path from 'path';
 
-import {readFile, writeFile, fileExists, readDirRecursive} from './Util';
+import {readFile, writeFile, fileExists, readDirRecursive, indent} from './Util';
 import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
-import {Options} from './Options';
+import {Configs} from './Configs';
 
 require('source-map-support');
 
+type TestResult = TestSuccess | TestFailure;
+
 interface TestSuccess {
     result: 'success'
+    testDir: string
 }
 
 interface TestFailure {
     result: 'failure'
+    testDir: string
+    details: string
 }
 
 export function shell(cmd:string, options:any = {})
@@ -42,13 +47,10 @@ async function findTestsForTarget(target:string) {
     return tests;
 }
 
-async function runOneTest(testDir:string, options:Options) : Promise<TestSuccess | TestFailure> {
+async function runOneTest(testDir:string) : Promise<TestResult> {
     const configs = await getDerivedConfigsForDir(testDir);
-    if (configs.command) {
-        options.command = configs.command;
-    }
     
-    let fullCommand = options.command;
+    let fullCommand = configs.command;
     const inputFilename = Path.join(testDir, 'input.txt');
 
     // Use input file, if it exists.
@@ -63,38 +65,48 @@ async function runOneTest(testDir:string, options:Options) : Promise<TestSuccess
 
     console.log(`Running: ${fullCommand}`);
 
-    console.log("Options: ", options);
-
     const shellResult = await shell(fullCommand);
 
     if (shellResult.stderr) {
-        console.log(`Command ${fullCommand} had stderr:\n${shellResult.stderr}`);
-        return {result: 'failure'};
+        return {
+            result: 'failure',
+            testDir: testDir,
+            details: `Command ${fullCommand} had stderr:\n${shellResult.stderr}`
+        };
     }
 
-    if (shellResult.error && !options.expect_error) {
-        console.log(`Command ${fullCommand} had error:\n${shellResult.error}`);
-        return {result: 'failure'};
+    if (shellResult.error && !configs.expect_error) {
+        return {
+            result: 'failure',
+            testDir: testDir,
+            details: `Command ${fullCommand} had error:\n${shellResult.error}`
+        }
     }
 
-    if (options.expect_error && !shellResult.error) {
-        console.log(`Command ${fullCommand} didn't throw an error, but 'expect_error' is on`);
-        return {result: 'failure'};
+    if (configs.expect_error && !shellResult.error) {
+        return {
+            result: 'failure',
+            testDir: testDir,
+            details: `Command ${fullCommand} didn't throw an error, but 'expect_error' is on`
+        }
     }
 
     const actualOutput = shellResult.stdout;
     const actualLines = actualOutput.split('\n');
 
-    if (options.showOutput) {
+    if (configs.showOutput) {
         console.log("Output:");
         for (const line of actualLines)
             console.log('  ' + line);
     }
 
-    if (options.acceptOutput) {
+    if (configs.acceptOutput) {
         await writeFile(expectedOutputFilename, actualOutput);
         console.log(`Wrote output to: ${expectedOutputFilename}`);
-        return {result: 'success'};
+        return {
+            result: 'success',
+            testDir: testDir
+        };
     }
 
     const expectedOutput = await readFile(expectedOutputFilename);
@@ -105,34 +117,49 @@ async function runOneTest(testDir:string, options:Options) : Promise<TestSuccess
         const expectedLine = expectedLines[lineNumber];
 
         if (actualLine !== expectedLine) {
-            console.log(`Line ${lineNumber} didn't match expected output:\n`
-                +`Expected: ${expectedLine}\n`
-                +`Actual:   ${actualLine}`);
-
-            return {result: 'failure'};
+            return {
+                result: 'failure',
+                testDir: testDir,
+                details: `Line ${lineNumber} didn't match expected output:\n`
+                    +`Expected: ${expectedLine}\n`
+                    +`Actual:   ${actualLine}`
+            }
         }
     }
 
-    console.log(`Test passed: ${testDir}`);
-    return {result: 'success'};
+    return {
+        result: 'success',
+        testDir: testDir
+    };
 }
 
-export async function run(options:Options) {
+export async function run() {
+
+    const configs = commandLineArgs();
 
     let allTests = [];
 
-    for (const target of options.targetDirectories) {
+    for (const target of configs.targetDirectories) {
         const targetTests = await findTestsForTarget(target);
         allTests = allTests.concat(targetTests);
     }
 
-    Promise.all(allTests.map((dir) => runOneTest(dir, options)));
+    const allResults:TestResult[] = await Promise.all(
+        allTests.map((dir) =>
+            runOneTest(dir)));
+
+    for (const testResult of allResults) {
+        if (testResult.result === 'success') {
+            console.log('Test passed: '+ testResult.testDir);
+        } else if (testResult.result === 'failure') {
+            console.log('Test failed: '+ testResult.testDir);
+            console.log(indent(testResult.details));
+        }
+    }
 }
 
 function commandLineStart() {
-    const options = commandLineArgs();
-
-    run(options)
+    run()
     .catch((err) => {
         process.exitCode = 1;
         console.log(err);

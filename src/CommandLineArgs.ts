@@ -1,8 +1,8 @@
 
 import ArgReader from './ArgReader';
-import {Options} from './Options';
+import {Configs} from './Configs';
 
-let _parsed:Options|null = null;
+let _parsed:Configs|null = null;
 
 export default function get() {
     if (_parsed) {
@@ -10,7 +10,7 @@ export default function get() {
     }
 
     const reader = new ArgReader();
-    const options:Options = {
+    const options:Configs = {
         targetDirectories: []
     };
 

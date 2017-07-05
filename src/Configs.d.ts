@@ -1,5 +1,5 @@
 
-export interface Options {
+export interface Configs {
     command?: string
     targetDirectories: string[]
     acceptOutput?: boolean
