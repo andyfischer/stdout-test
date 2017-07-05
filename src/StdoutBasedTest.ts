@@ -76,6 +76,17 @@ async function runOneTest(testDir:string) : Promise<TestResult> {
     }
 
     if (shellResult.error && !configs.expect_error) {
+
+        const exitCode = shellResult.error.code);
+
+        if (exitCode !== 0) {
+            return {
+                result: 'failure',
+                testDir: testDir,
+                details: `Command: ${fullCommand}\nExited with non-zero code: ${exitCode}`
+            }
+        }
+
         return {
             result: 'failure',
             testDir: testDir,
@@ -87,7 +98,7 @@ async function runOneTest(testDir:string) : Promise<TestResult> {
         return {
             result: 'failure',
             testDir: testDir,
-            details: `Command ${fullCommand} didn't throw an error, but 'expect_error' is on`
+            details: `Command ${fullCommand} didn't error, but 'expect_error' is on.`
         }
     }
 
