@@ -4,11 +4,14 @@ import * as Fs from 'fs';
 import * as Path from 'path';
 
 import {readFile, writeFile, fileExists, readDirRecursive, indent} from './Util';
-import {getDerivedConfigsForDir} from './ReadConfigs';
+//import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
-import {Configs} from './Configs';
+import parseTestFile from './ParseTestFile';
 
-require('source-map-support');
+try {
+    require('source-map-support');
+} catch (e) {
+}
 
 type TestResult = TestSuccess | TestFailure;
 
@@ -48,49 +51,45 @@ async function findTestsForTarget(target:string) {
 }
 
 async function runOneTest(testDir:string) : Promise<TestResult> {
-    const configs = await getDerivedConfigsForDir(testDir);
+    const configs = commandLineArgs();
     
-    let fullCommand = configs.command;
-    const inputFilename = Path.join(testDir, 'input.txt');
+    const expectedOutputFilename = Path.join(testDir, 'expected.txt');
+    const test = parseTestFile(await readFile(expectedOutputFilename));
 
-    // Use input file, if it exists.
-    if (await fileExists(inputFilename)) {
-        fullCommand += ' ' + inputFilename;
-    }
+    const originalCommand = configs.command || test.command;
+    let actualCommand = originalCommand;
 
     // Template strings
-    fullCommand = fullCommand.replace(/\{testDir\}/g, testDir);
+    actualCommand = actualCommand.replace(/\{testDir\}/g, testDir);
 
-    const expectedOutputFilename = Path.join(testDir, 'expected.txt');
+    console.log(`Running: ${actualCommand}`);
 
-    console.log(`Running: ${fullCommand}`);
-
-    const shellResult = await shell(fullCommand);
+    const shellResult = await shell(actualCommand);
 
     if (shellResult.stderr) {
         return {
             result: 'failure',
             testDir: testDir,
-            details: `Command ${fullCommand} had stderr:\n${shellResult.stderr}`
+            details: `Command ${actualCommand} had stderr:\n${shellResult.stderr}`
         };
     }
 
     if (shellResult.error && !configs.expect_error) {
 
-        const exitCode = shellResult.error.code);
+        const exitCode = shellResult.error.code;
 
         if (exitCode !== 0) {
             return {
                 result: 'failure',
                 testDir: testDir,
-                details: `Command: ${fullCommand}\nExited with non-zero code: ${exitCode}`
+                details: `Command: ${actualCommand}\nExited with non-zero code: ${exitCode}`
             }
         }
 
         return {
             result: 'failure',
             testDir: testDir,
-            details: `Command ${fullCommand} had error:\n${shellResult.error}`
+            details: `Command ${actualCommand} had error:\n${shellResult.error}`
         }
     }
 
@@ -98,7 +97,7 @@ async function runOneTest(testDir:string) : Promise<TestResult> {
         return {
             result: 'failure',
             testDir: testDir,
-            details: `Command ${fullCommand} didn't error, but 'expect_error' is on.`
+            details: `Command ${actualCommand} didn't error, but 'expect_error' is on.`
         }
     }
 
@@ -112,7 +111,7 @@ async function runOneTest(testDir:string) : Promise<TestResult> {
     }
 
     if (configs.acceptOutput) {
-        await writeFile(expectedOutputFilename, actualOutput);
+        await writeFile(expectedOutputFilename, ' $ ' + originalCommand + '\n' + actualOutput);
         console.log(`Wrote output to: ${expectedOutputFilename}`);
         return {
             result: 'success',
@@ -120,12 +119,9 @@ async function runOneTest(testDir:string) : Promise<TestResult> {
         };
     }
 
-    const expectedOutput = await readFile(expectedOutputFilename);
-    const expectedLines = expectedOutput.split('\n');
-
     for (const lineNumber in actualLines) {
         const actualLine = actualLines[lineNumber];
-        const expectedLine = expectedLines[lineNumber];
+        const expectedLine = test.expectedLines[lineNumber];
 
         if (actualLine !== expectedLine) {
             return {
@@ -159,13 +155,20 @@ export async function run() {
         allTests.map((dir) =>
             runOneTest(dir)));
 
+    let anyFailed = false;
+
     for (const testResult of allResults) {
         if (testResult.result === 'success') {
             console.log('Test passed: '+ testResult.testDir);
         } else if (testResult.result === 'failure') {
             console.log('Test failed: '+ testResult.testDir);
             console.log(indent(testResult.details));
+            anyFailed = true;
         }
+    }
+
+    if (anyFailed) {
+        process.exitCode = -1;
     }
 }
 

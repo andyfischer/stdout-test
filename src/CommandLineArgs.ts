@@ -1,8 +1,16 @@
 
 import ArgReader from './ArgReader';
-import {Configs} from './Configs';
 
-let _parsed:Configs|null = null;
+export interface Options {
+    command?: string
+    targetDirectories: string[]
+    acceptOutput?: boolean
+    showOutput?: boolean
+    expect_error?: boolean
+    justPrintVersion?: boolean
+}
+
+let _parsed:Options|null = null;
 
 export default function get() {
     if (_parsed) {
@@ -10,7 +18,7 @@ export default function get() {
     }
 
     const reader = new ArgReader();
-    const options:Configs = {
+    const options:Options = {
         targetDirectories: []
     };
 
@@ -26,12 +34,14 @@ export default function get() {
         } else if (next === '--accept') {
             options.acceptOutput = true;
             options.showOutput = true;
+        } else if (next === '-v' || next === '--version') {
+            options.justPrintVersion = true;
         } else if (next === '--show') {
             options.showOutput = true;
         } else if (next === '--expect-error') {
             options.expect_error = true;
         } else if (next === '--command') {
-            options.command = reader.consume();
+            options.command = reader.consumeRemaining().join(' ');
         } else {
             if (ArgReader.looksLikeOption(next)) {
                 console.log("Unrecognized option: " +next);

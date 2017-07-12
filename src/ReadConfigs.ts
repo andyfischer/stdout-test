@@ -1,4 +1,5 @@
 
+/*
 import * as Path from 'path';
 
 import {readTomlFile} from './Util';
@@ -55,3 +56,4 @@ export async function getDerivedConfigsForDir(dir:string) : Promise<Configs> {
 
     return configs;
 }
+*/
