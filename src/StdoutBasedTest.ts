@@ -3,7 +3,7 @@ import * as Fs from 'fs';
 import * as Path from 'path';
 
 import {readFile, writeFile, fileExists, readDirRecursive, indent, shell, mkdirp} from './Util';
-//import {getDerivedConfigsForDir} from './ReadConfigs';
+import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
 import parseTestFile, {ParsedTestFile} from './ParseTestFile';
 
@@ -63,10 +63,18 @@ async function loadExpectedFile(test:Test) : Promise<Test> {
     return test;
 }
 
-function loadCommand(test: Test) : Test {
+async function loadCommand(test: Test) : Promise<Test> {
     const args = commandLineArgs();
 
-    test.originalCommand = args.command || test.expected.command;
+    test.originalCommand = args.command || (test.expected && test.expected.command);
+
+    if (!test.originalCommand && args.accept) {
+        // When --accept is used and no --command is given, try to find the command
+        // in the configs.
+        const configs = await getDerivedConfigsForDir(test.testDir);
+        test.originalCommand = configs.default_command;
+    }
+
     test.command = test.originalCommand;
 
     // Template strings
@@ -104,35 +112,6 @@ async function runTestCommand(test: Test) : Promise<Test> {
     } else {
         test.actualExitCode = 0;
     }
-
-    /*
-    if (shellResult.error && !args.expect_error) {
-
-        const exitCode = shellResult.error.code;
-
-        if (exitCode !== 0) {
-            test.result = {
-                result: 'failure',
-                details: `Command: ${test.command}\nExited with non-zero code: ${exitCode}`
-            }
-            return test;
-        }
-
-        test.result = {
-            result: 'failure',
-            details: `Command ${test.command} had error:\n${shellResult.error}`
-        }
-        return test;
-    }
-
-    if (args.expect_error && !shellResult.error) {
-        test.result = {
-            result: 'failure',
-            details: `Command ${test.command} didn't error, but 'expect_error' is on.`
-        }
-        return test;
-    }
-    */
 
     return test;
 }
@@ -201,7 +180,7 @@ async function runOneTest(test:Test) : Promise<Test> {
     const args = commandLineArgs();
 
     await loadExpectedFile(test);
-    loadCommand(test);
+    await loadCommand(test);
     await runTestCommand(test);
 
     if (args.showOutput) {

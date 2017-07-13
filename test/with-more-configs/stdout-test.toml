@@ -1,2 +1,0 @@
-
-command = "test/TestApp.js --extra-option-from-config-file"

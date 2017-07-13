@@ -1,2 +1,0 @@
-Command line args = [ 'test/with-input-file/input.txt' ]
-Done

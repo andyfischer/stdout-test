@@ -1,2 +1,0 @@
-Command line args = [ '--extra-option-from-config-file' ]
-Done

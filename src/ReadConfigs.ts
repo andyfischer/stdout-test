@@ -1,10 +1,12 @@
 
-/*
 import * as Path from 'path';
 
 import {readTomlFile} from './Util';
 import commandLineArgs from './CommandLineArgs';
-import {Configs} from './Configs';
+
+export interface Configs {
+    default_command?: string
+}
 
 const _cachedConfigs = {}
 
@@ -26,7 +28,6 @@ export async function getDerivedConfigsForDir(dir:string) : Promise<Configs> {
 
     const parentDir = Path.dirname(dir);
     const configs:Configs = {
-        targetDirectories: []
     };
 
     if (parentDir !== dir) {
@@ -39,21 +40,11 @@ export async function getDerivedConfigsForDir(dir:string) : Promise<Configs> {
     const configFile = await readTomlFileOptional(Path.join(dir, 'stdout-test.toml'));
 
     if (configFile !== null) {
-        // Don't allow the config file to set certain options, these are command-line only.
-        delete configFile['acceptOutput'];
-        delete configFile['show'];
-
         for (const key in configFile)
             configs[key] = configFile[key];
     }
-
-    // Include options from command-line args.
-    const args = commandLineArgs();
-    for (const key in args)
-        configs[key] = args[key];
 
     _cachedConfigs[dir] = JSON.stringify(configs);
 
     return configs;
 }
-*/
