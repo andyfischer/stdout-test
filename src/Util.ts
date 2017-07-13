@@ -1,4 +1,5 @@
 import * as Path from 'path';
+import * as ChildProcess from 'child_process';
 import * as Fs from 'fs';
 
 export function readFile(filename:string) : Promise<string> {
@@ -91,3 +92,37 @@ export function fileExists(filename:string) : Promise<boolean> {
 export function indent(str:string, indent:string = '  ') {
     return indent + str.replace(/\n/g, '\n' + indent);
 }
+
+function mkdir(path:string) : Promise<void> {
+    return new Promise((resolve, reject) => {
+        Fs.mkdir(path, (error) => {
+            if (error)
+                reject(error);
+            else
+                resolve();
+        });
+    });
+}
+
+export async function mkdirp(path:string) {
+    if (await fileExists(path))
+        return;
+
+    await mkdirp(Path.dirname(path));
+    await mkdir(path);
+}
+
+export function shell(cmd:string, options:any = {})
+        : Promise<{error:any, stdout:string, stderr:string}>
+{
+    return new Promise((resolve, reject) => {
+        ChildProcess.exec(cmd, options, (error, stdout, stderr) => {
+            resolve({
+                error: error,
+                stdout: stdout,
+                stderr: stderr
+            });
+        });
+    });
+}
+

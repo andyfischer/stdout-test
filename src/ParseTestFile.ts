@@ -4,7 +4,14 @@ export interface ParsedTestFile {
     expectedLines: string[]
 }
 
-export default function parseTestFile(expectedOutput:string) {
+export default function parseTestFile(expectedOutput : string|null) : ParsedTestFile {
+
+    if (!expectedOutput) {
+        return {
+            command: null,
+            expectedLines: []
+        }
+    }
 
     const expectedLines = expectedOutput.split('\n');
 

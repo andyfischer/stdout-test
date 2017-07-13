@@ -1,19 +1,22 @@
 
-import * as ChildProcess from 'child_process';
 import * as Fs from 'fs';
 import * as Path from 'path';
 
-import {readFile, writeFile, fileExists, readDirRecursive, indent} from './Util';
+import {readFile, writeFile, fileExists, readDirRecursive, indent, shell, mkdirp} from './Util';
 //import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
 import parseTestFile from './ParseTestFile';
 
 try {
     require('source-map-support');
-} catch (e) {
-}
+} catch (e) { }
 
 type TestResult = TestSuccess | TestFailure;
+
+interface TestAccept {
+    result: 'accept'
+    testDir: string
+}
 
 interface TestSuccess {
     result: 'success'
@@ -24,20 +27,6 @@ interface TestFailure {
     result: 'failure'
     testDir: string
     details: string
-}
-
-export function shell(cmd:string, options:any = {})
-        : Promise<{error:any, stdout:string, stderr:string}>
-{
-    return new Promise((resolve, reject) => {
-        ChildProcess.exec(cmd, options, (error, stdout, stderr) => {
-            resolve({
-                error: error,
-                stdout: stdout,
-                stderr: stderr
-            });
-        });
-    });
 }
 
 async function findTestsForTarget(target:string) {
@@ -54,10 +43,20 @@ async function runOneTest(testDir:string) : Promise<TestResult> {
     const configs = commandLineArgs();
     
     const expectedOutputFilename = Path.join(testDir, 'expected.txt');
-    const test = parseTestFile(await readFile(expectedOutputFilename));
+
+    const expectedOutput : string|null = await readFile(expectedOutputFilename).catch(() => null);
+    const test = parseTestFile(expectedOutput);
 
     const originalCommand = configs.command || test.command;
     let actualCommand = originalCommand;
+
+    if (!actualCommand) {
+        return {
+            result: 'failure',
+            testDir: testDir,
+            details: `Missing command (use --command flag to set one)`
+        };
+    }
 
     // Template strings
     actualCommand = actualCommand.replace(/\{testDir\}/g, testDir);
@@ -111,10 +110,11 @@ async function runOneTest(testDir:string) : Promise<TestResult> {
     }
 
     if (configs.acceptOutput) {
+        await mkdirp(testDir);
         await writeFile(expectedOutputFilename, ' $ ' + originalCommand + '\n' + actualOutput);
-        console.log(`Wrote output to: ${expectedOutputFilename}`);
+        console.log(`Saved output to: ${expectedOutputFilename}`);
         return {
-            result: 'success',
+            result: 'accept',
             testDir: testDir
         };
     }
@@ -140,24 +140,11 @@ async function runOneTest(testDir:string) : Promise<TestResult> {
     };
 }
 
-export async function run() {
-
-    const configs = commandLineArgs();
-
-    let allTests = [];
-
-    for (const target of configs.targetDirectories) {
-        const targetTests = await findTestsForTarget(target);
-        allTests = allTests.concat(targetTests);
-    }
-
-    const allResults:TestResult[] = await Promise.all(
-        allTests.map((dir) =>
-            runOneTest(dir)));
+function reportTestResults(results : TestResult[]) {
 
     let anyFailed = false;
 
-    for (const testResult of allResults) {
+    for (const testResult of results) {
         if (testResult.result === 'success') {
             console.log('Test passed: '+ testResult.testDir);
         } else if (testResult.result === 'failure') {
@@ -170,6 +157,27 @@ export async function run() {
     if (anyFailed) {
         process.exitCode = -1;
     }
+    
+}
+
+export async function run() {
+
+    const configs = commandLineArgs();
+
+    let allTests = [];
+
+    /*
+    for (const target of configs.targetDirectories) {
+        const targetTests = await findTestsForTarget(target);
+        allTests = allTests.concat(targetTests);
+    }
+    */
+
+    const results:TestResult[] = await Promise.all(
+        configs.targetDirectories.map((dir) => runOneTest(dir))
+    );
+
+    reportTestResults(results);
 }
 
 function commandLineStart() {

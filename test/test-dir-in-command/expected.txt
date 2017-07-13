@@ -1,2 +1,3 @@
+ $ node test/TestApp.js {testDir}
 Command line args = [ 'test/test-dir-in-command' ]
 Done
