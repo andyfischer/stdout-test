@@ -4,7 +4,7 @@ import ArgReader from './ArgReader';
 export interface Options {
     command?: string
     targetDirectories: string[]
-    acceptOutput?: boolean
+    accept?: boolean
     showOutput?: boolean
     expect_error?: boolean
     justPrintVersion?: boolean
@@ -32,7 +32,7 @@ export default function get() {
             console.log("  --expect-error  Expect the command to error (exit with non-zero code)");
             return;
         } else if (next === '--accept') {
-            options.acceptOutput = true;
+            options.accept = true;
             options.showOutput = true;
         } else if (next === '-v' || next === '--version') {
             options.justPrintVersion = true;

@@ -5,7 +5,7 @@ import * as Path from 'path';
 import {readFile, writeFile, fileExists, readDirRecursive, indent, shell, mkdirp} from './Util';
 //import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
-import parseTestFile from './ParseTestFile';
+import parseTestFile, {ParsedTestFile} from './ParseTestFile';
 
 try {
     require('source-map-support');
@@ -13,19 +13,25 @@ try {
 
 type TestResult = TestSuccess | TestFailure;
 
-interface TestAccept {
-    result: 'accept'
+interface Test {
     testDir: string
+    expectedTxtFilename: string
+    expected: ParsedTestFile | null
+    originalCommand: string
+    command: string
+    result: TestResult
+
+    actualLines: string[]
+    actualStderrLines: string[]
+    actualExitCode: number
 }
 
 interface TestSuccess {
     result: 'success'
-    testDir: string
 }
 
 interface TestFailure {
     result: 'failure'
-    testDir: string
     details: string
 }
 
@@ -39,117 +45,195 @@ async function findTestsForTarget(target:string) {
     return tests;
 }
 
-async function runOneTest(testDir:string) : Promise<TestResult> {
-    const configs = commandLineArgs();
-    
-    const expectedOutputFilename = Path.join(testDir, 'expected.txt');
+async function loadExpectedFile(test:Test) : Promise<Test> {
+    const args = commandLineArgs();
 
-    const expectedOutput : string|null = await readFile(expectedOutputFilename).catch(() => null);
-    const test = parseTestFile(expectedOutput);
-
-    const originalCommand = configs.command || test.command;
-    let actualCommand = originalCommand;
-
-    if (!actualCommand) {
-        return {
-            result: 'failure',
-            testDir: testDir,
-            details: `Missing command (use --command flag to set one)`
-        };
+    if (args.accept) {
+        // when --accept is used, don't read expected.txt at all.
+        return test;
     }
+
+    const expectedOutput : string|null = await readFile(test.expectedTxtFilename).catch(() => null);
+    if (!expectedOutput) {
+        return test;
+    }
+    
+    const parsed = parseTestFile(expectedOutput);
+    test.expected = parsed;
+    return test;
+}
+
+function loadCommand(test: Test) : Test {
+    const args = commandLineArgs();
+
+    test.originalCommand = args.command || test.expected.command;
+    test.command = test.originalCommand;
 
     // Template strings
-    actualCommand = actualCommand.replace(/\{testDir\}/g, testDir);
+    test.command = test.command.replace(/\{testDir\}/g, test.testDir);
 
-    console.log(`Running: ${actualCommand}`);
+    return test;
+}
 
-    const shellResult = await shell(actualCommand);
+async function runTestCommand(test: Test) : Promise<Test> {
 
-    if (shellResult.stderr) {
-        return {
+    const command = test.command;
+    const args = commandLineArgs();
+
+    if (!command) {
+        test.result = {
             result: 'failure',
-            testDir: testDir,
-            details: `Command ${actualCommand} had stderr:\n${shellResult.stderr}`
+            details: `Missing command (use --command flag to set one)`
         };
+        return test;
     }
 
-    if (shellResult.error && !configs.expect_error) {
+    console.log(`Running: ${command}`);
+
+    const shellResult = await shell(command);
+
+    const actualOutput = shellResult.stdout;
+    test.actualLines = actualOutput.split('\n');
+
+    if (shellResult.stderr) {
+        test.actualStderrLines = shellResult.stderr.split('\n');
+    }
+
+    if (shellResult.error) {
+        test.actualExitCode = shellResult.error.code;
+    } else {
+        test.actualExitCode = 0;
+    }
+
+    /*
+    if (shellResult.error && !args.expect_error) {
 
         const exitCode = shellResult.error.code;
 
         if (exitCode !== 0) {
-            return {
+            test.result = {
                 result: 'failure',
-                testDir: testDir,
-                details: `Command: ${actualCommand}\nExited with non-zero code: ${exitCode}`
+                details: `Command: ${test.command}\nExited with non-zero code: ${exitCode}`
             }
+            return test;
         }
 
-        return {
+        test.result = {
             result: 'failure',
-            testDir: testDir,
-            details: `Command ${actualCommand} had error:\n${shellResult.error}`
+            details: `Command ${test.command} had error:\n${shellResult.error}`
         }
+        return test;
     }
 
-    if (configs.expect_error && !shellResult.error) {
-        return {
+    if (args.expect_error && !shellResult.error) {
+        test.result = {
             result: 'failure',
-            testDir: testDir,
-            details: `Command ${actualCommand} didn't error, but 'expect_error' is on.`
+            details: `Command ${test.command} didn't error, but 'expect_error' is on.`
         }
+        return test;
     }
+    */
 
-    const actualOutput = shellResult.stdout;
-    const actualLines = actualOutput.split('\n');
+    return test;
+}
 
-    if (configs.showOutput) {
-        console.log("Output:");
-        for (const line of actualLines)
-            console.log('  ' + line);
+function testBackToExpectedString(test:Test) {
+    let out = ' $ ' + test.originalCommand + '\n' + test.actualLines.join('\n');
+    if (test.actualExitCode !== 0) {
+        out += ' # exit code: ' + test.actualExitCode + '\n';
     }
+    return out;
+}
 
-    if (configs.acceptOutput) {
-        await mkdirp(testDir);
-        await writeFile(expectedOutputFilename, ' $ ' + originalCommand + '\n' + actualOutput);
-        console.log(`Saved output to: ${expectedOutputFilename}`);
-        return {
-            result: 'accept',
-            testDir: testDir
-        };
-    }
+async function acceptOutput(test:Test) : Promise<void> {
+    await mkdirp(test.testDir);
+    await writeFile(test.expectedTxtFilename, testBackToExpectedString(test));
+    console.log(`Saved output to: ${test.expectedTxtFilename}`);
+}
 
-    for (const lineNumber in actualLines) {
-        const actualLine = actualLines[lineNumber];
-        const expectedLine = test.expectedLines[lineNumber];
+function checkExpectedOutput(test:Test) : Test {
+    const actualLines = test.actualLines;
+    const expectedLines = test.expected.lines;
+
+    const maxLineNumber = Math.max(actualLines.length, expectedLines.length);
+
+    for (let lineNumber = 0; lineNumber < maxLineNumber; lineNumber++) {
+        let actualLine = actualLines[lineNumber];
+        let expectedLine = expectedLines[lineNumber];
 
         if (actualLine !== expectedLine) {
-            return {
+            test.result = {
                 result: 'failure',
-                testDir: testDir,
                 details: `Line ${lineNumber} didn't match expected output:\n`
                     +`Expected: ${expectedLine}\n`
                     +`Actual:   ${actualLine}`
             }
+            return;
         }
     }
 
-    return {
-        result: 'success',
-        testDir: testDir
+    if (test.actualExitCode !== test.expected.exitCode) {
+        if (test.expected.exitCode === 0) {
+            test.result = {
+                result: 'failure',
+                details: `Command: ${test.command}\nExited with non-zero code: ${test.actualExitCode}`
+            }
+            return test;
+        }
+
+        test.result = {
+            result: 'failure',
+            details: `Command: ${test.command}\nProcess exit code didn't match expected:\n`
+                    +`Expected exit code: ${test.expected.exitCode}\n`
+                    +`Actual exit code:   ${test.actualExitCode}`
+        }
+        return test;
+    }
+
+    test.result = {
+        result: 'success'
     };
+
+    return test;
 }
 
-function reportTestResults(results : TestResult[]) {
+async function runOneTest(test:Test) : Promise<Test> {
+    const args = commandLineArgs();
+
+    await loadExpectedFile(test);
+    loadCommand(test);
+    await runTestCommand(test);
+
+    if (args.showOutput) {
+        console.log("Output:");
+        for (const line of test.actualLines)
+            console.log('  ' + line);
+    }
+
+    if (args.accept) {
+        await acceptOutput(test);
+    } else {
+        checkExpectedOutput(test);
+    }
+
+    return test;
+}
+
+function reportTestResults(tests : Test[]) {
 
     let anyFailed = false;
 
-    for (const testResult of results) {
-        if (testResult.result === 'success') {
-            console.log('Test passed: '+ testResult.testDir);
-        } else if (testResult.result === 'failure') {
-            console.log('Test failed: '+ testResult.testDir);
-            console.log(indent(testResult.details));
+    for (const test of tests) {
+        if (!test.result) {
+            console.log("internal error: test has no result: ", test);
+            throw new Error("internal error: test has no result: ");
+        }
+
+        if (test.result.result === 'success') {
+            console.log('Test passed: '+ test.testDir);
+        } else if (test.result.result === 'failure') {
+            console.log('Test failed: '+ test.testDir);
+            console.log(indent(test.result.details));
             anyFailed = true;
         }
     }
@@ -162,22 +246,43 @@ function reportTestResults(results : TestResult[]) {
 
 export async function run() {
 
-    const configs = commandLineArgs();
+    const args = commandLineArgs();
 
     let allTests = [];
 
     /*
-    for (const target of configs.targetDirectories) {
+    for (const target of args.targetDirectories) {
         const targetTests = await findTestsForTarget(target);
         allTests = allTests.concat(targetTests);
     }
     */
 
-    const results:TestResult[] = await Promise.all(
-        configs.targetDirectories.map((dir) => runOneTest(dir))
+    const tests:Test[] = await Promise.all(
+        args.targetDirectories.map((dir) => {
+
+            // Normalize directory.. no trailing slash.
+            if (dir[dir.length - 1] === '/')
+                dir = dir.substr(0, dir.length - 1);
+
+            const test : Test = {
+                testDir: dir,
+                expectedTxtFilename: Path.join(dir, 'expected.txt'),
+                expected: null,
+                originalCommand: null,
+                command: null,
+                result: null,
+                actualLines: [],
+                actualStderrLines: [],
+                actualExitCode: null
+            };
+            
+            return runOneTest(test);
+        })
     );
 
-    reportTestResults(results);
+    if (!args.accept) {
+        reportTestResults(tests);
+    }
 }
 
 function commandLineStart() {

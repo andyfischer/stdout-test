@@ -1,31 +1,39 @@
 
 export interface ParsedTestFile {
     command: string | null
-    expectedLines: string[]
+    lines: string[]
+    exitCode: number
 }
 
 export default function parseTestFile(expectedOutput : string|null) : ParsedTestFile {
 
-    if (!expectedOutput) {
-        return {
-            command: null,
-            expectedLines: []
-        }
-    }
-
-    const expectedLines = expectedOutput.split('\n');
-
     const parsed:ParsedTestFile = {
         command: null,
-        expectedLines: expectedLines
+        lines: [],
+        exitCode: 0
     };
 
-    if (expectedLines[0][0] === ' '
-            && expectedLines[0][1] === '$'
-            && expectedLines[0][2] === ' ') {
+    if (!expectedOutput) {
+        return parsed;
+    }
 
-        parsed.command = expectedLines[0].slice(3);
-        parsed.expectedLines = expectedLines.slice(1);
+    for (const line of expectedOutput.split('\n')) {
+        if (line[0] === ' ' && (line[1] === '$' || line[1] === '#')) {
+
+            const commandMatch = / \$ (.*)/.exec(line);
+            if (commandMatch) {
+                parsed.command = commandMatch[1];
+                continue;
+            }
+
+            const exitCodeMatch = / # exit code: (.*)/.exec(line);
+            if (exitCodeMatch) {
+                parsed.exitCode = parseInt(exitCodeMatch[1]);
+                continue;
+            }
+        }
+
+        parsed.lines.push(line);
     }
 
     return parsed;

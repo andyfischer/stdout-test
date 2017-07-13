@@ -1,2 +1,4 @@
+ $ test/TestApp.js --error-exit-code
 Command line args = [ '--error-exit-code' ]
 Done
+ # exit code: 255
