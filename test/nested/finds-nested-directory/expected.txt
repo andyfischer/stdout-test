@@ -1,2 +1,3 @@
-Command line args = []
+ $ node test/TestApp.js {testDir}
+Command line args = [ 'test/nested/finds-nested-directory' ]
 Done

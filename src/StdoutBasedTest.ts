@@ -87,12 +87,12 @@ async function loadCommand(test: Test) : Promise<Test> {
         // When --accept is used and no --command is given, try to find the command
         // in the configs.
         const configs = await getDerivedConfigsForDir(test.testDir);
-        test.originalCommand = configs.default_command;
-    }
 
-    if (!test.originalCommand) {
-        throw new UsageError("Missing command. Use the --command flag to set one, or add "
-                        +"'default_command' to a stdout-test.toml config file.");
+        if (!configs.default_command) {
+            throw new UsageError("Missing command. Use the --command flag to set one, or add "
+                            +"'default_command' to a stdout-test.toml config file.");
+        }
+        test.originalCommand = configs.default_command;
     }
 
     test.command = test.originalCommand;
