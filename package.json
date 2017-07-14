@@ -1,6 +1,6 @@
 {
   "name": "stdout-test",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Language-agnostic test tool that checks a process's stdout output",
   "repository": "git@github.com:andyfischer/stdout-test.git",
   "main": "bin/stdout-test",
