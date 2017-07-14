@@ -63,11 +63,6 @@ async function findTestsForDir(dir:string): Promise<string[]> {
 async function loadExpectedFile(test:Test) : Promise<Test> {
     const args = commandLineArgs();
 
-    if (args.accept) {
-        // when --accept is used, don't read expected.txt at all.
-        return test;
-    }
-
     const expectedOutput : string|null = await readFile(test.expectedTxtFilename).catch(() => null);
     if (!expectedOutput) {
         return test;

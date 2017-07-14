@@ -47,8 +47,13 @@ operations can run in a nondeterministic order.
 
 To address that, here are some options:
 
- 1) Fix the tool to make the output totally deterministic. For some tools I've added an
-    `--in-test` command line option, which makes it use hardcoded dates and etc. This
-    is more code to write, but it helps in a few ways to make automated testing more rock-solid.
+ 1) Change your program to make the output totally deterministic. One pattern that I've used
+    is to add an `--in-test` flag to an app, so when that flag is used, then it uses
+    hardcoded dates and etc. This is definitely more coding work, but it can also help
+    make your app more reliable, and encourage coders to clean up any garbage or noise
+    from the output.
 
- 2) In a future version of stdout-test we'll support regex patterns in the expected.txt file.
+ 2) Pipe all the output through a "scrubber" process. The scrubber would search & replace
+    any pieces of text which are nondetermistic, and replace them with hardcoded strings.
+
+ 3) In a future version of stdout-test we'll support regex patterns in the expected.txt file.
