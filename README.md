@@ -5,6 +5,8 @@
 
 Stdout-test is a testing tool that runs your process and checks if the stdout is exactly what's expected.
 
+### How to use ###
+
 To record a new test, run this:
 
 ```
@@ -36,6 +38,17 @@ stdout --accept
 This will run the saved tests, and instead of verifying the output, it will just save the new output. At that point you can use source control (such as `git diff`) to visually verify that any changes
 are intended, and if so, save the modified test files.
 
+
 ### What do I do if the output is not deterministic? ###
 
-Future feature: Regexes in the expected.txt file
+It's common to have issues when a process's output is not exactly the same every time.
+This can happen if any random or changing data (like timestamps) is printed, or if any
+operations can run in a nondeterministic order.
+
+To address that, here are some options:
+
+ 1) Fix the tool to make the output totally deterministic. For some tools I've added an
+    `--in-test` command line option, which makes it use hardcoded dates and etc. This
+    is more code to write, but it helps in a few ways to make automated testing more rock-solid.
+
+ 2) In a future version of stdout-test we'll support regex patterns in the expected.txt file.

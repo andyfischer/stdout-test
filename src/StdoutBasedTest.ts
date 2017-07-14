@@ -9,7 +9,11 @@ import parseTestFile, {ParsedTestFile} from './ParseTestFile';
 
 try {
     require('source-map-support');
-} catch (e) { }
+} catch (e) { 
+
+    console.log("No source map support: ", e);
+
+}
 
 type TestResult = TestSuccess | TestFailure;
 
@@ -35,9 +39,9 @@ interface TestFailure {
     details: string
 }
 
-async function findTestsForTarget(target:string) {
+async function findTestsForDir(dir:string) {
     const tests = [];
-    for (const file of await readDirRecursive(target)) {
+    for (const file of await readDirRecursive(dir)) {
         if (Path.basename(file) === 'expected.txt') {
             tests.push(Path.dirname(file));
         }
@@ -77,8 +81,10 @@ async function loadCommand(test: Test) : Promise<Test> {
 
     test.command = test.originalCommand;
 
-    // Template strings
-    test.command = test.command.replace(/\{testDir\}/g, test.testDir);
+    if (test.command) {
+        // Template strings
+        test.command = test.command.replace(/\{testDir\}/g, test.testDir);
+    }
 
     return test;
 }
@@ -227,17 +233,25 @@ export async function run() {
 
     const args = commandLineArgs();
 
-    let allTests = [];
+    let allTestDirs = [];
 
-    /*
-    for (const target of args.targetDirectories) {
-        const targetTests = await findTestsForTarget(target);
-        allTests = allTests.concat(targetTests);
+    for (const targetDir of args.targetDirectories) {
+        const tests = await findTestsForDir(targetDir);
+
+        if (tests.length === 0) {
+            if (args.accept) {
+                // Allow a directory that contains no tests. We'll write expected.txt here.
+                allTestDirs.push(targetDir);
+            } else {
+                throw new Error("No tests found in directory: " + targetDir);
+            }
+        }
+
+        allTestDirs = allTestDirs.concat(tests);
     }
-    */
 
     const tests:Test[] = await Promise.all(
-        args.targetDirectories.map((dir) => {
+        allTestDirs.map((dir) => {
 
             // Normalize directory.. no trailing slash.
             if (dir[dir.length - 1] === '/')
