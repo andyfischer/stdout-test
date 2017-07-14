@@ -1,0 +1,3 @@
+ $ stdout-test --accept test/new-dir
+Missing command. Use the --command flag to set one, or add 'default_command' to a stdout-test.toml config file.
+ # exit code: 1

@@ -38,7 +38,8 @@ export function readDir(filename:string) : Promise<string[]> {
 
 export function isDirectory(filename:string) : Promise<boolean> {
     return stat(filename)
-    .then((stat) => stat.isDirectory());
+    .then((stat) => stat.isDirectory())
+    .catch(() => false);
 }
 
 export async function readDirRecursive(filename:string) : Promise<string[]> {

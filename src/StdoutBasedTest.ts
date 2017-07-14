@@ -2,7 +2,8 @@
 import * as Fs from 'fs';
 import * as Path from 'path';
 
-import {readFile, writeFile, fileExists, readDirRecursive, indent, shell, mkdirp} from './Util';
+import {readFile, writeFile, fileExists, readDirRecursive,
+        isDirectory, indent, shell, mkdirp} from './Util';
 import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
 import parseTestFile, {ParsedTestFile} from './ParseTestFile';
@@ -10,9 +11,14 @@ import parseTestFile, {ParsedTestFile} from './ParseTestFile';
 try {
     require('source-map-support');
 } catch (e) { 
+}
 
-    console.log("No source map support: ", e);
+class UsageError {
+    usageError: string
 
+    constructor(message: string) {
+        this.usageError = message;
+    }
 }
 
 type TestResult = TestSuccess | TestFailure;
@@ -39,8 +45,13 @@ interface TestFailure {
     details: string
 }
 
-async function findTestsForDir(dir:string) {
+async function findTestsForDir(dir:string): Promise<string[]> {
     const tests = [];
+
+    if (!await isDirectory(dir)) {
+        return [];
+    }
+
     for (const file of await readDirRecursive(dir)) {
         if (Path.basename(file) === 'expected.txt') {
             tests.push(Path.dirname(file));
@@ -77,6 +88,11 @@ async function loadCommand(test: Test) : Promise<Test> {
         // in the configs.
         const configs = await getDerivedConfigsForDir(test.testDir);
         test.originalCommand = configs.default_command;
+    }
+
+    if (!test.originalCommand) {
+        throw new UsageError("Missing command. Use the --command flag to set one, or add "
+                        +"'default_command' to a stdout-test.toml config file.");
     }
 
     test.command = test.originalCommand;
@@ -282,7 +298,11 @@ function commandLineStart() {
     run()
     .catch((err) => {
         process.exitCode = 1;
-        console.log(err);
+        if (err.usageError) {
+            console.log(err.usageError);
+        } else {
+            console.log(err);
+        }
     });
 }
 
