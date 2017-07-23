@@ -9,8 +9,9 @@ import commandLineArgs from './CommandLineArgs';
 import parseTestFile, {ParsedTestFile} from './ParseTestFile';
 import checkOutput from './CheckOutput';
 import Test from './Test';
+import backfixOutput from './libs/stdout-test-backfix/BackfixOutput';
 
-import './libs/TracedConsole';
+import './libs/console-trace-helper/TracedConsole';
 
 try {
     require('source-map-support').install();
@@ -89,8 +90,8 @@ async function runTestCommand(test: Test) : Promise<Test> {
 
     if (!command) {
         test.result = {
-            result: 'failure',
-            details: `Missing command (use --command flag to set one)`
+            success: false,
+            message: `Missing command (use --command flag to set one)`
         };
         return test;
     }
@@ -165,8 +166,28 @@ async function runOneTest(test:Test) : Promise<Test> {
 
     if (args.accept) {
         await acceptOutput(test);
-    } else {
-        checkOutput(test);
+        return test;
+    }
+
+    checkOutput(test);
+
+    if (args.backfix && !test.result.success) {
+
+        console.log('Test failed: '+ test.testDir);
+        console.log(indent(test.result.message));
+        console.log('Attempting to backfix: '+ test.testDir);
+
+        const backfix = await backfixOutput({
+            actualLine: test.result.actualLine,
+            desiredLine: test.result.expectedLine,
+            trace: test.actualTraceLines[test.result.lineNumber]
+        });
+
+        if (backfix.result.success) {
+            test.result.success = true;
+        } else {
+            console.log("Backfix failed for: "+test.testDir);
+        }
     }
 
     return test;
@@ -182,11 +203,11 @@ function reportTestResults(tests : Test[]) {
             throw new Error("internal error: test has no result: ");
         }
 
-        if (test.result.result === 'success') {
+        if (test.result.success) {
             console.log('Test passed: '+ test.testDir);
-        } else if (test.result.result === 'failure') {
+        } else {
             console.log('Test failed: '+ test.testDir);
-            console.log(indent(test.result.details));
+            console.log(indent(test.result.message));
             anyFailed = true;
         }
     }

@@ -1,16 +1,13 @@
 
 import {ParsedTestFile} from './ParseTestFile';
 
-export interface TestSuccess {
-    result: 'success'
+export interface TestResult {
+    success: boolean
+    message?: string
+    expectedLine?: string
+    actualLine?: string
+    lineNumber?: number
 }
-
-export interface TestFailure {
-    result: 'failure'
-    details: string
-}
-
-type TestResult = TestSuccess | TestFailure;
 
 export default interface Test {
     testDir: string
@@ -18,10 +15,11 @@ export default interface Test {
     expected: ParsedTestFile | null
     originalCommand: string
     command: string
-    result: TestResult
 
     actualLines: string[]
     actualTraceLines?: {text:string}[]
     actualStderrLines: string[]
     actualExitCode: number
+
+    result: TestResult
 }
