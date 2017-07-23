@@ -6,8 +6,9 @@ export interface Options {
     targetDirectories: string[]
     accept?: boolean
     showOutput?: boolean
-    expect_error?: boolean
+    expectError?: boolean
     alreadyDone?: boolean
+    backfix?: boolean
 }
 
 let _parsed:Options|null = null;
@@ -37,10 +38,12 @@ export default function get() : Options|null {
         } else if (next === '-v' || next === '--version') {
             console.log(require('../package.json').version);
             return null;
+        } else if (next === '--backfix') {
+            options.backfix = true;
         } else if (next === '--show') {
             options.showOutput = true;
         } else if (next === '--expect-error') {
-            options.expect_error = true;
+            options.expectError = true;
         } else if (next === '--command') {
             options.command = reader.consumeRemaining().join(' ');
         } else {

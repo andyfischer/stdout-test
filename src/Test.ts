@@ -21,6 +21,7 @@ export default interface Test {
     result: TestResult
 
     actualLines: string[]
+    actualTraceLines?: {text:string}[]
     actualStderrLines: string[]
     actualExitCode: number
 }

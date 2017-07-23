@@ -7,7 +7,7 @@ import {readFile, writeFile, fileExists, readDirRecursive,
 import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
 import parseTestFile, {ParsedTestFile} from './ParseTestFile';
-import checkExpectedOutput from './CheckOutput';
+import checkOutput from './CheckOutput';
 import Test from './Test';
 
 import './libs/TracedConsole';
@@ -50,6 +50,7 @@ async function loadExpectedFile(test:Test) : Promise<Test> {
     
     const parsed = parseTestFile(expectedOutput);
     test.expected = parsed;
+
     return test;
 }
 
@@ -84,6 +85,7 @@ async function runTestCommand(test: Test) : Promise<Test> {
 
     const command = test.command;
     const args = commandLineArgs();
+    const enableTraces = args.backfix;
 
     if (!command) {
         test.result = {
@@ -95,10 +97,31 @@ async function runTestCommand(test: Test) : Promise<Test> {
 
     console.log(`Running: ${command}`);
 
-    const shellResult = await shell(command);
+    const options:any = { };
+
+    if (enableTraces) {
+        options.env = {};
+        for (const k in process.env) {
+            options.env[k] = process.env[k];
+        }
+        options.env.TRACE_STDOUT = 1;
+    }
+
+    const shellResult = await shell(command, options);
 
     const actualOutput = shellResult.stdout;
     test.actualLines = actualOutput.split('\n');
+
+    if (enableTraces) {
+        test.actualTraceLines = test.actualLines.map(line => {
+            try {
+                return JSON.parse(line)
+            } catch (e) {
+                return {text: line};
+            }
+        });
+        test.actualLines = test.actualTraceLines.map(line => line.text);
+    }
 
     if (shellResult.stderr) {
         test.actualStderrLines = shellResult.stderr.split('\n');
@@ -127,7 +150,6 @@ async function acceptOutput(test:Test) : Promise<void> {
     console.log(`Saved output to: ${test.expectedTxtFilename}`);
 }
 
-
 async function runOneTest(test:Test) : Promise<Test> {
     const args = commandLineArgs();
 
@@ -144,7 +166,7 @@ async function runOneTest(test:Test) : Promise<Test> {
     if (args.accept) {
         await acceptOutput(test);
     } else {
-        checkExpectedOutput(test);
+        checkOutput(test);
     }
 
     return test;

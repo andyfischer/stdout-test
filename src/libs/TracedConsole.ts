@@ -1,27 +1,40 @@
 
 if (process.env.TRACE_STDOUT) {
 
-    let prevConsoleLog = null;
+    let globalPrevConsoleLog = null;
 
     const StackTrace = require('stacktrace-js');
 
-    const oldConsoleLog = console.log;
+    const realConsoleLog = console.log;
 
     console.log = (...args: string[]) => {
 
-        prevConsoleLog = (async () => {
+        const linesOut = args.join(' ').split('\n');
 
+        globalPrevConsoleLog = (async () => {
+
+            const prevConsoleLog = globalPrevConsoleLog;
+
+            // Grab the stack trace before entering into a promises callback.
+            let trace = await StackTrace.get();
+            
+            // Make sure order is preserved for all log messages.
             if (prevConsoleLog)
                 await prevConsoleLog;
 
-            const trace = await StackTrace.get();
+            // Remove this file from the trace.
+            trace = trace.filter((traceLine) => 
+                !(/TracedConsole\.(js|ts)/.exec(traceLine.fileName))
+            );
 
-            const msg = {
-                msg: args.join(' '),
-                stack: trace
+            for (const line of linesOut) {
+                const msg = {
+                    text: line,
+                    stack: trace
+                }
+
+                realConsoleLog(JSON.stringify(msg));
             }
-
-            oldConsoleLog(JSON.stringify(msg, null, 2));
         })();
     }
 
