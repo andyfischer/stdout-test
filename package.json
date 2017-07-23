@@ -17,6 +17,7 @@
   "devDependencies": {
     "@types/node": "8.0.7",
     "source-map-support": "0.4.15",
+    "stacktrace-js": "^2.0.0",
     "typescript": "2.4.1"
   },
   "dependencies": {

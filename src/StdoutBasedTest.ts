@@ -7,6 +7,8 @@ import {readFile, writeFile, fileExists, readDirRecursive,
 import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
 import parseTestFile, {ParsedTestFile} from './ParseTestFile';
+import checkExpectedOutput from './CheckOutput';
+import Test from './Test';
 
 import './libs/TracedConsole';
 
@@ -21,30 +23,6 @@ class UsageError {
     constructor(message: string) {
         this.usageError = message;
     }
-}
-
-type TestResult = TestSuccess | TestFailure;
-
-interface Test {
-    testDir: string
-    expectedTxtFilename: string
-    expected: ParsedTestFile | null
-    originalCommand: string
-    command: string
-    result: TestResult
-
-    actualLines: string[]
-    actualStderrLines: string[]
-    actualExitCode: number
-}
-
-interface TestSuccess {
-    result: 'success'
-}
-
-interface TestFailure {
-    result: 'failure'
-    details: string
 }
 
 async function findTestsForDir(dir:string): Promise<string[]> {
@@ -149,51 +127,6 @@ async function acceptOutput(test:Test) : Promise<void> {
     console.log(`Saved output to: ${test.expectedTxtFilename}`);
 }
 
-function checkExpectedOutput(test:Test) : Test {
-    const actualLines = test.actualLines;
-    const expectedLines = test.expected.lines;
-
-    const maxLineNumber = Math.max(actualLines.length, expectedLines.length);
-
-    for (let lineNumber = 0; lineNumber < maxLineNumber; lineNumber++) {
-        let actualLine = actualLines[lineNumber];
-        let expectedLine = expectedLines[lineNumber];
-
-        if (actualLine !== expectedLine) {
-            test.result = {
-                result: 'failure',
-                details: `Line ${lineNumber} didn't match expected output:\n`
-                    +`Expected: ${expectedLine}\n`
-                    +`Actual:   ${actualLine}`
-            }
-            return;
-        }
-    }
-
-    if (test.actualExitCode !== test.expected.exitCode) {
-        if (test.expected.exitCode === 0) {
-            test.result = {
-                result: 'failure',
-                details: `Command: ${test.command}\nExited with non-zero code: ${test.actualExitCode}`
-            }
-            return test;
-        }
-
-        test.result = {
-            result: 'failure',
-            details: `Command: ${test.command}\nProcess exit code didn't match expected:\n`
-                    +`Expected exit code: ${test.expected.exitCode}\n`
-                    +`Actual exit code:   ${test.actualExitCode}`
-        }
-        return test;
-    }
-
-    test.result = {
-        result: 'success'
-    };
-
-    return test;
-}
 
 async function runOneTest(test:Test) : Promise<Test> {
     const args = commandLineArgs();
@@ -239,7 +172,6 @@ function reportTestResults(tests : Test[]) {
     if (anyFailed) {
         process.exitCode = -1;
     }
-    
 }
 
 export async function run() {
