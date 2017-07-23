@@ -8,8 +8,10 @@ import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
 import parseTestFile, {ParsedTestFile} from './ParseTestFile';
 
+import './libs/TracedConsole';
+
 try {
-    require('source-map-support');
+    require('source-map-support').install();
 } catch (e) { 
 }
 
@@ -243,6 +245,10 @@ function reportTestResults(tests : Test[]) {
 export async function run() {
 
     const args = commandLineArgs();
+
+    if (args === null) {
+        return;
+    }
 
     let allTestDirs = [];
 

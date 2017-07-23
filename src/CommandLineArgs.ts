@@ -7,12 +7,12 @@ export interface Options {
     accept?: boolean
     showOutput?: boolean
     expect_error?: boolean
-    justPrintVersion?: boolean
+    alreadyDone?: boolean
 }
 
 let _parsed:Options|null = null;
 
-export default function get() {
+export default function get() : Options|null {
     if (_parsed) {
         return _parsed;
     }
@@ -30,12 +30,13 @@ export default function get() {
             console.log("  --accept        Accept the observed output and save it to disk");
             console.log("  --show          Show the command's full output");
             console.log("  --expect-error  Expect the command to error (exit with non-zero code)");
-            return;
+            return null;
         } else if (next === '--accept') {
             options.accept = true;
             options.showOutput = true;
         } else if (next === '-v' || next === '--version') {
-            options.justPrintVersion = true;
+            console.log(require('../package.json').version);
+            return null;
         } else if (next === '--show') {
             options.showOutput = true;
         } else if (next === '--expect-error') {

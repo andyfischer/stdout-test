@@ -1,0 +1,2 @@
+ $ stdout-test --version
+0.0.3
