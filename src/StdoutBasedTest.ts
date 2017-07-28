@@ -180,7 +180,7 @@ async function runOneTest(test:Test) : Promise<Test> {
         const backfix = await backfixOutput({
             actualLine: test.result.actualLine,
             desiredLine: test.result.expectedLine,
-            trace: test.actualTraceLines[test.result.lineNumber]
+            stack: test.actualTraceLines[test.result.lineNumber].stack
         });
 
         if (backfix.result.success) {

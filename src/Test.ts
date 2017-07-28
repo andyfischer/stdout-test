@@ -17,7 +17,7 @@ export default interface Test {
     command: string
 
     actualLines: string[]
-    actualTraceLines?: {text:string}[]
+    actualTraceLines?: {text:string, stack:any}[]
     actualStderrLines: string[]
     actualExitCode: number
 

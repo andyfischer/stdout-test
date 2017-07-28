@@ -12,6 +12,8 @@ export const t_squoted_str = 'squoted_str';
 export const t_dquoted_str = 'dquoted_str';
 export const t_slash = 'slash';
 export const t_double_slash_comment = 'double_slash_comment';
+export const t_dot = 'dot';
+export const t_semicolon = 'semicolon';
 export const t_unrecognized = 'unrecognized';
 
 const c_A = "A".charCodeAt(0);
@@ -22,6 +24,8 @@ const c_0 = "0".charCodeAt(0);
 const c_9 = "9".charCodeAt(0);
 const c_dash = "-".charCodeAt(0);
 const c_underscore = "_".charCodeAt(0);
+const c_dot = ".".charCodeAt(0);
+const c_semicolon = ";".charCodeAt(0);
 const c_lparen = "(".charCodeAt(0);
 const c_rparen = ")".charCodeAt(0);
 const c_lbracket = "[".charCodeAt(0);
@@ -135,7 +139,7 @@ export function startStringReader(str:string) {
     return it;
 }
 
-class Token {
+export interface Token {
     match: string
     startPos: number
     endPos: number
@@ -192,6 +196,9 @@ export function nextToken(it:StringReader) : Token {
         case c_lbracket: return it.consume(t_lbracket, 1, false);
         case c_rbracket: return it.consume(t_rbracket, 1, false);
         case c_newline: return it.consume(t_newline, 1, false);
+        case c_dot: return it.consume(t_dot, 1, false);
+        case c_semicolon: return it.consume(t_semicolon, 1, false);
+
         case c_slash: {
             if (it.next(1) === c_slash) {
                 return it.consumeWhile(t_double_slash_comment, (c) => c !== c_newline);
@@ -267,6 +274,16 @@ export function tokenToText(token:Token) : string {
         return token.text;
 
     return matchToText(token.match);
+}
+
+export function tokenize(text:string) : Token[] {
+    const out = [];
+
+    const reader = new TokenReader(text);
+    while (!reader.finished()) {
+        out.push(reader.consume());
+    }
+    return out;
 }
 
 async function commandLineRun() {

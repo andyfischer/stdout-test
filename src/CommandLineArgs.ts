@@ -5,6 +5,7 @@ export interface Options {
     command?: string
     targetDirectories: string[]
     accept?: boolean
+    capture?: boolean
     showOutput?: boolean
     expectError?: boolean
     alreadyDone?: boolean
@@ -28,12 +29,16 @@ export default function get() : Options|null {
         if (next === '--help') {
             console.log(`Usage: ${process.argv[0]} <options> <directories...>`);
             console.log("\nAvailable options:");
-            console.log("  --accept        Accept the observed output and save it to disk");
+            console.log("  --accept        Accept the output and save it");
+            console.log("  --capture       Save a new test");
             console.log("  --show          Show the command's full output");
             console.log("  --expect-error  Expect the command to error (exit with non-zero code)");
             return null;
         } else if (next === '--accept') {
             options.accept = true;
+            options.showOutput = true;
+        } else if (next === '--capture') {
+            options.capture = true;
             options.showOutput = true;
         } else if (next === '-v' || next === '--version') {
             console.log(require('../package.json').version);
