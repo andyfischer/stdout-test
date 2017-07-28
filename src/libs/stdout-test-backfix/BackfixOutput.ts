@@ -1,6 +1,5 @@
 
 import {writeFile, readFile} from './../../Util';
-import {tokenize} from '../../libs/loose-javascript-parser/Tokenizer';
 
 interface BackfixOutputOperation {
     actualLine: string
@@ -12,6 +11,8 @@ interface BackfixOutputOperation {
 }
 
 export default async function backfixOutput(op:BackfixOutputOperation) : Promise<BackfixOutputOperation> {
+
+    const {tokenize} = require('loose-javascript-parser');
 
     console.log('backfix: ', op);
 
