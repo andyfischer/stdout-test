@@ -2,6 +2,7 @@
 Usage: /usr/local/bin/node <options> <directories...>
 
 Available options:
-  --accept        Accept the command's output and save it to disk
+  --accept        Accept the output and save it
+  --capture       Save a new test
   --show          Show the command's full output
   --expect-error  Expect the command to error (exit with non-zero code)
