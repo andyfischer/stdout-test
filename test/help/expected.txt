@@ -1,4 +1,4 @@
- $ stdout-test --help
+ $ bin/stdout-test --help
 Usage: /usr/local/bin/node <options> <directories...>
 
 Available options:

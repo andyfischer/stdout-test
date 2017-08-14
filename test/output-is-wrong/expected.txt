@@ -1,4 +1,4 @@
- $ stdout-test test/echo --command echo not hi
+ $ bin/stdout-test test/echo --command echo not hi
 Running: echo not hi
 Test failed: test/echo
   Line 0 didn't match expected output:
