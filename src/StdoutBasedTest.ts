@@ -1,9 +1,9 @@
 
-import * as Fs from 'fs';
+import * as Fs from 'fs-extra';
 import * as Path from 'path';
 
-import {readFile, writeFile, fileExists, readDirRecursive,
-        isDirectory, indent, shell, mkdirp} from './Util';
+import {readFile, writeFile, readDirRecursive,
+        isDirectory, indent, shell} from './Util';
 import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
 import parseTestFile, {ParsedTestFile} from './ParseTestFile';
@@ -146,9 +146,29 @@ function testBackToExpectedString(test:Test) {
 }
 
 async function acceptOutput(test:Test) : Promise<void> {
-    await mkdirp(test.testDir);
+    await Fs.ensureDir(test.testDir);
     await writeFile(test.expectedTxtFilename, testBackToExpectedString(test));
     console.log(`Saved output to: ${test.expectedTxtFilename}`);
+}
+
+async function runOneTestDirectory(dir:string) : Promise<Test> {
+    // Normalize directory.. no trailing slash.
+    if (dir[dir.length - 1] === '/')
+        dir = dir.substr(0, dir.length - 1);
+    
+    const test : Test = {
+        testDir: dir,
+        expectedTxtFilename: Path.join(dir, 'expected.txt'),
+        expected: null,
+        originalCommand: null,
+        command: null,
+        result: null,
+        actualLines: [],
+        actualStderrLines: [],
+        actualExitCode: null
+    };
+
+    return await runOneTest(test);
 }
 
 async function runOneTest(test:Test) : Promise<Test> {
@@ -164,7 +184,7 @@ async function runOneTest(test:Test) : Promise<Test> {
             console.log('  ' + line);
     }
 
-    if (args.accept) {
+    if (args.accept || args.capture) {
         await acceptOutput(test);
         return test;
     }
@@ -217,11 +237,33 @@ function reportTestResults(tests : Test[]) {
     }
 }
 
+export async function capture() {
+    const args = commandLineArgs();
+
+    if (args.targetDirectories.length !== 1) {
+        throw new UsageError("Expected a single directory argument, when using --capture flag");
+    }
+
+    await Fs.ensureDir(args.targetDirectories[0]);
+
+    await runOneTestDirectory(args.targetDirectories[0]);
+}
+
 export async function run() {
 
     const args = commandLineArgs();
 
+    if (args.help) {
+        console.log(await readFile(__dirname + '/../help/main.txt'));
+        return;
+    }
+
     if (args === null) {
+        return;
+    }
+
+    if (args.capture) {
+        await capture();
         return;
     }
 
@@ -243,26 +285,7 @@ export async function run() {
     }
 
     const tests:Test[] = await Promise.all(
-        allTestDirs.map((dir) => {
-
-            // Normalize directory.. no trailing slash.
-            if (dir[dir.length - 1] === '/')
-                dir = dir.substr(0, dir.length - 1);
-
-            const test : Test = {
-                testDir: dir,
-                expectedTxtFilename: Path.join(dir, 'expected.txt'),
-                expected: null,
-                originalCommand: null,
-                command: null,
-                result: null,
-                actualLines: [],
-                actualStderrLines: [],
-                actualExitCode: null
-            };
-            
-            return runOneTest(test);
-        })
+        allTestDirs.map(runOneTestDirectory)
     );
 
     if (!args.accept) {

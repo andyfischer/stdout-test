@@ -82,14 +82,6 @@ export function writeFile(filename:string, contents:string) : Promise<void> {
     }) as any as Promise<void>;
 }
 
-export function fileExists(filename:string) : Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        Fs.exists(filename, (exists) => {
-            resolve(exists);
-        });
-    });
-}
-
 export function indent(str:string, indent:string = '  ') {
     return indent + str.replace(/\n/g, '\n' + indent);
 }
@@ -103,14 +95,6 @@ function mkdir(path:string) : Promise<void> {
                 resolve();
         });
     });
-}
-
-export async function mkdirp(path:string) {
-    if (await fileExists(path))
-        return;
-
-    await mkdirp(Path.dirname(path));
-    await mkdir(path);
 }
 
 export function shell(cmd:string, options:any = {})

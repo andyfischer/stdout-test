@@ -2,6 +2,7 @@
 import ArgReader from './ArgReader';
 
 export interface Options {
+    help?: boolean
     command?: string
     targetDirectories: string[]
     accept?: boolean
@@ -27,22 +28,20 @@ export default function get() : Options|null {
     while (!reader.finished()) {
         const next = reader.consume();
         if (next === '--help') {
-            console.log(`Usage: ${process.argv[0]} <options> <directories...>`);
-            console.log("\nAvailable options:");
-            console.log("  --accept        Accept the output and save it");
-            console.log("  --capture       Save a new test");
-            console.log("  --show          Show the command's full output");
-            console.log("  --expect-error  Expect the command to error (exit with non-zero code)");
-            return null;
+            options.help = true;
+
         } else if (next === '--accept') {
             options.accept = true;
             options.showOutput = true;
+
         } else if (next === '--capture') {
             options.capture = true;
             options.showOutput = true;
+            
         } else if (next === '-v' || next === '--version') {
             console.log(require('../package.json').version);
             return null;
+
         } else if (next === '--backfix') {
             options.backfix = true;
         } else if (next === '--show') {
