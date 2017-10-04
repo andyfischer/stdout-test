@@ -3,17 +3,23 @@
 
 *"Stupidly simple testing"*
 
-Stdout-test is a testing tool that runs your process and checks if the stdout is exactly what's expected.
+`stdout-test` is a testing tool that runs a shell command, and verifies the console output against an "accepted" file.
+
+By focusing on console output as the test material, we hope that we:
+
+ 1) Encourage tests that are really easy to run and debug in isolation, since each test is a valid shell command.
+ 2) Make it really easy to create or update tests.
+ 3) 
 
 ### How to use ###
 
 To record a new test, run this:
 
 ```
-stdout-test --add test-name my-process --xyz
+stdout-test --capture test-name my-process --xyz
 ```
 
-This will run `my-process --xyz` in a shell, record all its stdout output, and save everything at `test/test-name/expected.txt`. At that point you can commit the `expected.txt` file to source control and now you have a new test.
+This will run `my-process --xyz` in a shell, record all its stdout output, and save everything at `test/test-name.test`. At that point you can commit the `.test` file to source control, and now you have a new test.
 
 To run it, you can run a single test:
 
@@ -56,4 +62,4 @@ To address that, here are some options:
  2) Pipe all the output through a "scrubber" process. The scrubber would search & replace
     any pieces of text which are nondetermistic, and replace them with hardcoded strings.
 
- 3) In a future version of stdout-test we'll support regex patterns in the expected.txt file.
+ 3) In a future version of stdout-test we'll support regex patterns in the .test file.

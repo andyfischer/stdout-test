@@ -2,8 +2,7 @@
 import * as Fs from 'fs-extra';
 import * as Path from 'path';
 
-import {readFile, writeFile, readDirRecursive,
-        isDirectory, indent, shell} from './Util';
+import {readFile, writeFile, readDirRecursive, indent, shell} from './Util';
 import {getDerivedConfigsForDir} from './ReadConfigs';
 import commandLineArgs from './CommandLineArgs';
 import parseTestFile, {ParsedTestFile} from './ParseTestFile';
@@ -12,6 +11,7 @@ import Test from './Test';
 import backfixOutput from './libs/stdout-test-backfix/BackfixOutput';
 
 import './libs/console-trace-helper/TracedConsole';
+
 
 try {
     require('source-map-support').install();
@@ -26,6 +26,26 @@ class UsageError {
     }
 }
 
+async function isDirectory(file:string) {
+    try {
+        return (await Fs.stat(file)).isDirectory();
+    } catch (err) {
+        return false;
+    }
+}
+
+async function isFile(file:string) {
+    try {
+        return (await Fs.stat(file)).isFile();
+    } catch (err) {
+        return false;
+    }
+}
+
+function isValidTestFilename(filename:string) {
+    return filename.endsWith('.test') || Path.basename(filename) === 'test';
+}
+
 async function findTestsForDir(dir:string): Promise<string[]> {
     const tests = [];
 
@@ -34,9 +54,8 @@ async function findTestsForDir(dir:string): Promise<string[]> {
     }
 
     for (const file of await readDirRecursive(dir)) {
-        if (Path.basename(file) === 'expected.txt') {
-            tests.push(Path.dirname(file));
-        }
+        if (isFile(file) && isValidTestFilename(file))
+            tests.push(file);
     }
     return tests;
 }
@@ -63,7 +82,7 @@ async function loadCommand(test: Test) : Promise<Test> {
     if (!test.originalCommand && args.accept) {
         // When --accept is used and no --command is given, try to find the command
         // in the configs.
-        const configs = await getDerivedConfigsForDir(test.testDir);
+        const configs = await getDerivedConfigsForDir(test.expectedTxtFilename);
 
         if (!configs.default_command) {
             throw new UsageError("Missing command. Use the --command flag to set one, or add "
@@ -151,14 +170,10 @@ async function acceptOutput(test:Test) : Promise<void> {
     console.log(`Saved output to: ${test.expectedTxtFilename}`);
 }
 
-async function runOneTestDirectory(dir:string) : Promise<Test> {
-    // Normalize directory.. no trailing slash.
-    if (dir[dir.length - 1] === '/')
-        dir = dir.substr(0, dir.length - 1);
-    
+async function runOneTestFile(filename:string) : Promise<Test> {
     const test : Test = {
-        testDir: dir,
-        expectedTxtFilename: Path.join(dir, 'expected.txt'),
+        expectedTxtFilename: filename,
+        testDir: Path.dirname(filename),
         expected: null,
         originalCommand: null,
         command: null,
@@ -168,10 +183,6 @@ async function runOneTestDirectory(dir:string) : Promise<Test> {
         actualExitCode: null
     };
 
-    return await runOneTest(test);
-}
-
-async function runOneTest(test:Test) : Promise<Test> {
     const args = commandLineArgs();
 
     await loadExpectedFile(test);
@@ -193,9 +204,9 @@ async function runOneTest(test:Test) : Promise<Test> {
 
     if (args.backfix && !test.result.success) {
 
-        console.log('Test failed: '+ test.testDir);
+        console.log('Test failed: '+ test.expectedTxtFilename);
         console.log(indent(test.result.message));
-        console.log('Attempting to backfix: '+ test.testDir);
+        console.log('Attempting to backfix: '+ test.expectedTxtFilename);
 
         const backfix = await backfixOutput({
             actualLine: test.result.actualLine,
@@ -206,7 +217,7 @@ async function runOneTest(test:Test) : Promise<Test> {
         if (backfix.result.success) {
             test.result.success = true;
         } else {
-            console.log("Backfix failed for: "+test.testDir);
+            console.log("Backfix failed for: "+test.expectedTxtFilename);
         }
     }
 
@@ -224,9 +235,9 @@ function reportTestResults(tests : Test[]) {
         }
 
         if (test.result.success) {
-            console.log('Test passed: '+ test.testDir);
+            console.log('Test passed: '+ test.expectedTxtFilename);
         } else {
-            console.log('Test failed: '+ test.testDir);
+            console.log('Test failed: '+ test.expectedTxtFilename);
             console.log(indent(test.result.message));
             anyFailed = true;
         }
@@ -240,13 +251,11 @@ function reportTestResults(tests : Test[]) {
 export async function capture() {
     const args = commandLineArgs();
 
-    if (args.targetDirectories.length !== 1) {
-        throw new UsageError("Expected a single directory argument, when using --capture flag");
+    if (args.files.length !== 1) {
+        throw new UsageError("Expected a single filename argument, when using --capture flag");
     }
 
-    await Fs.ensureDir(args.targetDirectories[0]);
-
-    await runOneTestDirectory(args.targetDirectories[0]);
+    await runOneTestFile(args.files[0]);
 }
 
 export async function run() {
@@ -267,25 +276,38 @@ export async function run() {
         return;
     }
 
-    let allTestDirs = [];
+    let allTestFiles = [];
 
-    for (const targetDir of args.targetDirectories) {
-        const tests = await findTestsForDir(targetDir);
-
-        if (tests.length === 0) {
-            if (args.accept) {
-                // Allow a directory that contains no tests. We'll write expected.txt here.
-                allTestDirs.push(targetDir);
-            } else {
-                throw new Error("No tests found in directory: " + targetDir);
+    for (const file of args.files) {
+        if (!await Fs.exists(file)) {
+            if (await Fs.exists(file + '.test')) {
+                allTestFiles.push(file + '.test');
+                continue;
             }
+
+            if (args.accept) {
+                // It's okay that this file doesn't exist, we'll create it.
+                if (isValidTestFilename(file))
+                    allTestFiles.push(file);
+                else
+                    allTestFiles.push(file + '.test');
+
+                continue;
+            }
+
+            throw new UsageError("File not found: "+file);
         }
 
-        allTestDirs = allTestDirs.concat(tests);
+        if (await isDirectory(file)) {
+            allTestFiles = allTestFiles.concat(await findTestsForDir(file));
+            continue;
+        }
+
+        allTestFiles.push(file);
     }
 
     const tests:Test[] = await Promise.all(
-        allTestDirs.map(runOneTestDirectory)
+        allTestFiles.map(runOneTestFile)
     );
 
     if (!args.accept) {

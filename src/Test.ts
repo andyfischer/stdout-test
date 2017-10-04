@@ -10,8 +10,8 @@ export interface TestResult {
 }
 
 export default interface Test {
-    testDir: string
     expectedTxtFilename: string
+    testDir: string
     expected: ParsedTestFile | null
     originalCommand: string
     command: string

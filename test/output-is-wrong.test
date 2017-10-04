@@ -1,6 +1,6 @@
- $ bin/stdout-test test/echo --command echo not hi
+ $ bin/stdout-test test/echo.test --command echo not hi
 Running: echo not hi
-Test failed: test/echo
+Test failed: test/echo.test
   Line 0 didn't match expected output:
   Expected: hi
   Actual:   not hi

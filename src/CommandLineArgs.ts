@@ -2,9 +2,9 @@
 import ArgReader from './ArgReader';
 
 export interface Options {
+    files: string[]
     help?: boolean
     command?: string
-    targetDirectories: string[]
     accept?: boolean
     capture?: boolean
     showOutput?: boolean
@@ -22,7 +22,7 @@ export default function get() : Options|null {
 
     const reader = new ArgReader();
     const options:Options = {
-        targetDirectories: []
+        files: []
     };
 
     while (!reader.finished()) {
@@ -30,7 +30,7 @@ export default function get() : Options|null {
         if (next === '--help') {
             options.help = true;
 
-        } else if (next === '--accept') {
+        } else if (next === '--accept' || next === '-a') {
             options.accept = true;
             options.showOutput = true;
 
@@ -48,20 +48,20 @@ export default function get() : Options|null {
             options.showOutput = true;
         } else if (next === '--expect-error') {
             options.expectError = true;
-        } else if (next === '--command') {
+        } else if (next === '--command' || next === '--') {
             options.command = reader.consumeRemaining().join(' ');
         } else {
             if (ArgReader.looksLikeOption(next)) {
                 console.log("Unrecognized option: " +next);
                 return;
             }
-            options.targetDirectories.push(next);
+            options.files.push(next);
         }
     }
 
-    // If no target directories are mentioned, default to 'test' as the target.
-    if (options.targetDirectories.length === 0) {
-        options.targetDirectories = ['test'];
+    // If no files are mentioned, default to 'test' directory.
+    if (options.files.length === 0) {
+        options.files = ['test'];
     }
 
     _parsed = options;

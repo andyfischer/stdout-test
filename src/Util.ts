@@ -1,6 +1,11 @@
 import * as Path from 'path';
 import * as ChildProcess from 'child_process';
 import * as Fs from 'fs';
+import * as FsExtra from 'fs-extra';
+
+async function isDirectory(file:string) {
+    return (await FsExtra.stat(file)).isDirectory();
+}
 
 export function readFile(filename:string) : Promise<string> {
     return new Promise((resolve, reject) => {
@@ -34,12 +39,6 @@ export function readDir(filename:string) : Promise<string[]> {
             }
         });
     });
-}
-
-export function isDirectory(filename:string) : Promise<boolean> {
-    return stat(filename)
-    .then((stat) => stat.isDirectory())
-    .catch(() => false);
 }
 
 export async function readDirRecursive(filename:string) : Promise<string[]> {

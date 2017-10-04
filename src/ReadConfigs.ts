@@ -27,8 +27,7 @@ export async function getDerivedConfigsForDir(dir:string) : Promise<Configs> {
     }
 
     const parentDir = Path.dirname(dir);
-    const configs:Configs = {
-    };
+    const configs:Configs = {};
 
     if (parentDir !== dir) {
         const parentConfigs = await getDerivedConfigsForDir(parentDir);

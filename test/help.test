@@ -1,8 +1,10 @@
  $ bin/stdout-test --help
-Usage: /usr/local/bin/node <options> <directories...>
+Usage: stdout-test <options> <directories...>
 
-Available options:
+Options:
   --accept        Accept the output and save it
   --capture       Save a new test
   --show          Show the command's full output
   --expect-error  Expect the command to error (exit with non-zero code)
+
+
