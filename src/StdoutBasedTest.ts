@@ -166,8 +166,13 @@ function testBackToExpectedString(test:Test) {
 
 async function acceptOutput(test:Test) : Promise<void> {
     await Fs.ensureDir(test.testDir);
-    await writeFile(test.expectedTxtFilename, testBackToExpectedString(test));
-    console.log(`Saved output to: ${test.expectedTxtFilename}`);
+    let filename = test.expectedTxtFilename;
+
+    if (await isDirectory(filename))
+        filename = Path.join(filename, 'test');
+
+    await writeFile(filename, testBackToExpectedString(test));
+    console.log(`Saved output to: ${filename}`);
 }
 
 async function runOneTestFile(filename:string) : Promise<Test> {
